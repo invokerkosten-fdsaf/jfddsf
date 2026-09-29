@@ -31,13 +31,13 @@ services:
         sync: false
 
   # ---------- Frontend (Vite static site, auto-wired to the API above) ----------
+  # Note: static sites are always free — no `plan` key allowed here.
   - type: web
     name: client134-web
     runtime: static
     rootDir: .
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    plan: free
     # HashRouter (#/...) needs no URL rewrites — every route serves index.html.
     envVars:
       - key: NODE_VERSION
