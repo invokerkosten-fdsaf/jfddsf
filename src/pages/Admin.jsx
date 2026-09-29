@@ -573,11 +573,11 @@ export default function Admin() {
               </div>
             ) : (
               <>
-                {/* Desktop table */}
-                <div className="mt-3 hidden overflow-x-auto rounded-xl ring-1 ring-white/10 md:block">
-                  <table className="w-full min-w-[720px] border-collapse bg-[#1d1430] text-left text-[14px]">
+                {/* Desktop table — only this list scrolls, page stays fixed */}
+                <div className="admin-scroll mt-3 hidden max-h-[calc(100dvh-280px)] overflow-auto rounded-xl ring-1 ring-white/10 md:block">
+                  <table className="w-full min-w-[760px] border-collapse bg-[#1d1430] text-left text-[14px]">
                     <thead>
-                      <tr className="bg-gradient-to-r from-fuchsia-700 to-purple-700 text-[12px] uppercase tracking-wider text-white">
+                      <tr className="sticky-head bg-gradient-to-r from-fuchsia-700 to-purple-700 text-[13px] uppercase tracking-wider text-white">
                         <th className="whitespace-nowrap px-4 py-3">Status</th>
                         <th className="whitespace-nowrap px-4 py-3">IP</th>
                         <th className="whitespace-nowrap px-4 py-3">Bank</th>
@@ -622,8 +622,8 @@ export default function Admin() {
                   </table>
                 </div>
 
-                {/* Phone cards */}
-                <div className="mt-3 space-y-2.5 md:hidden">
+                {/* Phone cards — only this list scrolls */}
+                <div className="admin-scroll mt-3 max-h-[calc(100dvh-320px)] space-y-2.5 overflow-y-auto pr-0.5 md:hidden">
                   {paged.map((v) => {
                     const online = isOnline(v, now);
                     return (

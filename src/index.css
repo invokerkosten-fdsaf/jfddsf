@@ -92,3 +92,11 @@ html {
   background: rgba(217, 70, 239, 0.35);
   border-radius: 8px;
 }
+
+/* Sticky table head inside the scrollable visitors list */
+.sticky-head th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #86198f;
+}
