@@ -1,11 +1,14 @@
 // Real internet logos shared by Landing + BankFlow + Admin.
-// Clearbit primary, Google favicon fallback. Responsive via object-contain.
+// Wikimedia Commons primary (verified files), Google favicon fallback,
+// letter tile as last resort. Responsive via object-contain.
+
+const W = "https://commons.wikimedia.org/wiki/Special:FilePath";
 
 export const BANK_LOGO_URLS = {
-  bgl: "https://logo.clearbit.com/bgl.lu?size=64",
-  ing: "https://logo.clearbit.com/ing.lu?size=64",
-  eboo: "https://logo.clearbit.com/post.lu?size=64",
-  rnet: "https://logo.clearbit.com/raiffeisen.lu?size=64",
+  bgl: `${W}/BGL_BNP_Paribas_logo.svg`,
+  ing: `${W}/ING_logo.svg`,
+  eboo: `${W}/Post_Luxembourg_logo.svg`,
+  rnet: `${W}/Logo_Raiffeisen.gif`,
 };
 
 export const BANK_FALLBACK_URLS = {
