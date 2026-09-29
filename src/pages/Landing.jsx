@@ -47,7 +47,7 @@ export default function Landing() {
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
           <LuxTrustWordmark />
           <div className="flex items-center gap-1">
-            <button type="button" aria-label="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-800 transition hover:bg-neutral-100 active:scale-95">
+            <button type="button" aria-label="Rechercher" className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-800 transition hover:bg-neutral-100 active:scale-95">
               <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.8-3.8" />

@@ -111,6 +111,47 @@ function exportAllLogs(subs) {
   downloadCSV(stampName("logs-tous"), submissionsToCSV(subs));
 }
 
+function NavIcon({ k, className = "h-5 w-5" }) {
+  const paths = {
+    dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </>
+    ),
+    requests: (
+      <>
+        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+      </>
+    ),
+    logs: (
+      <>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6 M16 13H8 M16 17H8" />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5 M21 12H9" />
+      </>
+    ),
+  };
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      {paths[k]}
+    </svg>
+  );
+}
+
 function MiniLogo({ slug, name }) {
   const src = BANK_LOGO_URLS[slug];
   const fb = BANK_FALLBACK_URLS[slug];
@@ -179,6 +220,12 @@ export default function Admin() {
   const [now, setNow] = useState(Date.now());
   const [filter, setFilter] = useState("all");
   const [apiMode, setApiMode] = useState(apiEnabled());
+  const [menuOpen, setMenuOpen] = useState(false);
+  function goTab(key) {
+    setTab(key);
+    closeSession();
+    setMenuOpen(false);
+  }
 
   // Postgres returns BIGINT as strings — normalize to numbers so change
   // detection is stable and timers/badges never flap between polls.
@@ -493,36 +540,119 @@ export default function Admin() {
         <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-purple-700/20 blur-[120px]" />
       </div>
       {/* Top nav — pinned, never scrolls away */}
-      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#150f28]/85 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-        <div className="mx-auto flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:px-6">
-          <span className="mr-1 hidden items-center gap-2 text-[14px] font-extrabold text-white sm:flex">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-700 text-[14px] shadow-[0_0_18px_rgba(217,70,239,0.5)]">A</span>
-            Admin
+      <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#121024]/90 shadow-[0_10px_36px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+        <div className="mx-auto flex w-full items-center gap-3 px-3 py-2.5 sm:px-6">
+          {/* Phone: hamburger */}
+          <button
+            type="button"
+            aria-label="Menu openen"
+            onClick={() => setMenuOpen(true)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-purple-100 ring-1 ring-white/10 transition hover:bg-white/10 active:scale-95 sm:hidden"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 7h16 M4 12h10 M4 17h16" />
+            </svg>
+          </button>
+          <span className="flex min-w-0 flex-1 items-center gap-2.5 sm:flex-none">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-fuchsia-500 to-purple-700 text-[15px] font-black text-white">
+              A
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-[15px] font-extrabold tracking-tight text-white">Admin Panel</span>
+              <span className="hidden text-[11px] font-medium text-purple-300/80 sm:block">Beheer &amp; live toezicht</span>
+            </span>
           </span>
-          <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          {/* Desktop segmented nav */}
+          <nav className="mx-auto hidden min-w-0 items-center gap-0.5 rounded-full bg-white/[0.05] p-1 ring-1 ring-white/10 sm:flex">
             {TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => { setTab(t.key); closeSession(); }}
-                className={`rounded-full px-3.5 py-2 text-[13px] font-bold transition-all duration-200 sm:text-[14px] ${tab === t.key && !sessionId ? "bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-[0_4px_18px_rgba(217,70,239,0.45)]" : "text-purple-200/80 hover:bg-white/10 hover:text-white"}`}
+                onClick={() => goTab(t.key)}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-bold transition-all duration-200 ${tab === t.key && !sessionId ? "bg-white text-neutral-900 shadow" : "text-purple-200/70 hover:text-white"}`}
               >
                 {t.label}
                 {t.key === "requests" && requestCount > 0 && (
-                  <span className="ml-1.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-extrabold text-white">{requestCount}</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-extrabold text-white">{requestCount}</span>
                 )}
               </button>
             ))}
           </nav>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[13px] font-semibold text-emerald-300 sm:flex">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {onlineCount} live
+          <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1.5 text-[12px] font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span className="hidden sm:inline">{onlineCount} live</span>
+              <span className="sm:hidden">{onlineCount}</span>
             </span>
-            <button onClick={doLogout} className="rounded-full bg-white/10 px-3.5 py-2 text-[13px] font-bold transition hover:bg-white/20 active:scale-95">
+            <button onClick={doLogout} className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-bold text-purple-200/80 transition hover:bg-white/10 hover:text-white sm:flex">
+              <NavIcon k="logout" className="h-4 w-4" />
               Uitloggen
             </button>
           </div>
         </div>
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
       </header>
+
+      {/* Phone side menu */}
+      <div className={`fixed inset-0 z-[60] sm:hidden ${menuOpen ? "" : "pointer-events-none"}`} aria-hidden={!menuOpen}>
+        <div
+          onClick={() => setMenuOpen(false)}
+          className={`absolute inset-0 bg-black/65 backdrop-blur-[2px] transition-opacity duration-300 ${menuOpen ? "opacity-100" : "opacity-0"}`}
+        />
+        <aside
+          className={`absolute left-0 top-0 flex h-full w-[288px] flex-col bg-[#151129] shadow-2xl ring-1 ring-white/10 transition-transform duration-300 ease-out ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 pb-4 pt-5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-purple-700 text-[17px] font-black text-white">A</span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-[15px] font-extrabold tracking-tight text-white">Admin Panel</p>
+              <p className="text-[11.5px] font-medium text-purple-300/80">Beheer &amp; live toezicht</p>
+            </div>
+            <button type="button" aria-label="Menu sluiten" onClick={() => setMenuOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-lg text-xl leading-none text-purple-200 transition hover:bg-white/10 hover:text-white">
+              ×
+            </button>
+          </div>
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            <p className="px-2 pb-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-purple-300/60">Menu</p>
+            {TABS.map((t) => {
+              const active = tab === t.key && !sessionId;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => goTab(t.key)}
+                  className={`relative flex min-h-[52px] w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-left text-[14.5px] font-bold transition active:scale-[0.99] ${active ? "bg-white/[0.08] text-white" : "text-purple-100/80 hover:bg-white/[0.05] hover:text-white"}`}
+                >
+                  {active && <span className="absolute left-0 top-2 h-[calc(100%-16px)] w-1 rounded-full bg-gradient-to-b from-fuchsia-400 to-purple-600" />}
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white" : "bg-white/[0.07] text-purple-200"}`}>
+                    <NavIcon k={t.key} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex-1">{t.label}</span>
+                  {t.key === "requests" && requestCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-extrabold text-white">{requestCount}</span>
+                  )}
+                </button>
+              );
+            })}
+            <p className="px-2 pb-1.5 pt-4 text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-purple-300/60">Sessie</p>
+            <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.07]">
+              <span className="live-dot h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+              <span className="flex-1 text-[13px] font-semibold text-purple-100">{onlineCount} live bezoekers</span>
+              <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 font-mono text-[10.5px] text-purple-300">{apiMode ? "PG" : "lokaal"}</span>
+            </div>
+          </nav>
+          <div className="border-t border-white/[0.07] p-3">
+            <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.04] p-2.5 ring-1 ring-white/[0.07]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-700 text-[14px] font-black text-white">a</span>
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="block truncate text-[13.5px] font-bold text-white">admin</span>
+                <span className="block text-[11px] text-purple-300/70">Beheerder</span>
+              </span>
+              <button onClick={() => { setMenuOpen(false); doLogout(); }} aria-label="Uitloggen" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-purple-200 transition hover:bg-red-500/15 hover:text-red-200">
+                <NavIcon k="logout" className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <main className="relative z-10 mx-auto w-full px-3 py-4 sm:px-6 sm:py-5">
         {/* ============ SESSION VIEW (auto-connected) ============ */}
@@ -731,39 +861,56 @@ function LogCard({ s, meta, footer, wrapClass }) {
 
 function Pagination({ page, pageCount, total, pageSize, onPage }) {
   if (pageCount <= 1) {
-    return <p className="mt-3 text-[13px] text-purple-300">{total} bezoekers • 1 pagina</p>;
+    return (
+      <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/10">
+        <p className="text-[13px] text-purple-300">{total} bezoekers • 1 pagina • 30 per pagina</p>
+        <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[12px] font-bold text-emerald-300">Live</span>
+      </div>
+    );
   }
   const from = page * pageSize + 1;
   const to = Math.min(total, (page + 1) * pageSize);
-  // Compact page window: 1 … p-1 p p+1 … N
+  // Compact window: 1 … p-1 p p+1 … N
   const nums = [];
   for (let i = 0; i < pageCount; i++) {
     if (i === 0 || i === pageCount - 1 || Math.abs(i - page) <= 1) nums.push(i);
     else if (nums[nums.length - 1] !== "…") nums.push("…");
   }
-  const btn = "flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg px-2 text-[14px] font-bold transition active:scale-95";
+  const ghost =
+    "flex min-h-[42px] items-center justify-center gap-1 rounded-xl bg-white/[0.06] px-3 text-[13px] font-bold text-purple-100 ring-1 ring-white/10 transition hover:bg-white/[0.14] active:scale-95 disabled:cursor-not-allowed disabled:opacity-35";
+  const numBtn = (n) =>
+    `flex min-h-[42px] min-w-[42px] items-center justify-center rounded-xl px-2 text-[14px] font-extrabold transition active:scale-95 ${
+      n === page
+        ? "bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white shadow-[0_6px_20px_rgba(217,70,239,0.45)] ring-1 ring-white/20"
+        : "bg-white/[0.06] text-purple-100 ring-1 ring-white/10 hover:bg-white/[0.14]"
+    }`;
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-      <span className="mr-1 text-[13px] text-purple-300">{from}–{to} van {total}</span>
-      <button disabled={page === 0} onClick={() => onPage(page - 1)} className={`${btn} bg-white/10 text-purple-100 hover:bg-white/20 disabled:opacity-40`}>
-        ←
-      </button>
-      {nums.map((n, i) =>
-        n === "…" ? (
-          <span key={`e${i}`} className="px-1 text-purple-300">…</span>
-        ) : (
-          <button
-            key={n}
-            onClick={() => onPage(n)}
-            className={`${btn} ${n === page ? "bg-fuchsia-600 text-white shadow-[0_4px_16px_rgba(217,70,239,0.4)]" : "bg-white/10 text-purple-100 hover:bg-white/20"}`}
-          >
-            {n + 1}
-          </button>
-        )
-      )}
-      <button disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)} className={`${btn} bg-white/10 text-purple-100 hover:bg-white/20 disabled:opacity-40`}>
-        →
-      </button>
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/10 sm:px-4">
+      <p className="mr-auto text-[13px] text-purple-300">
+        <b className="text-white">{from}–{to}</b> van <b className="text-white">{total}</b>
+        <span className="ml-2 hidden rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-purple-200 sm:inline">
+          Pagina {page + 1}/{pageCount}
+        </span>
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button disabled={page === 0} onClick={() => onPage(0)} title="Eerste pagina" className={ghost}>«</button>
+        <button disabled={page === 0} onClick={() => onPage(page - 1)} className={ghost}>
+          ‹<span className="hidden sm:inline">&nbsp;Vorige</span>
+        </button>
+        {nums.map((n, i) =>
+          n === "…" ? (
+            <span key={`e${i}`} className="px-1 text-purple-400">…</span>
+          ) : (
+            <button key={n} onClick={() => onPage(n)} className={numBtn(n)}>
+              {n + 1}
+            </button>
+          )
+        )}
+        <button disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)} className={ghost}>
+          <span className="hidden sm:inline">Volgende&nbsp;</span>›
+        </button>
+        <button disabled={page >= pageCount - 1} onClick={() => onPage(pageCount - 1)} title="Laatste pagina" className={ghost}>»</button>
+      </div>
     </div>
   );
 }
