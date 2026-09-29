@@ -1,0 +1,46 @@
+# One-click Render blueprint: API + frontend, using YOUR existing Postgres.
+# Render -> New -> Blueprint -> select this repo. It will ask for DATABASE_URL
+# (paste your invokers Postgres URL) and then deploy everything below.
+#
+# Result:
+#   API:      https://client134-api.onrender.com  (server/, Express + pg)
+#   Frontend: https://client134-web.onrender.com  (Vite build, auto-wired to API)
+#   Database: your existing invokers Postgres (no new DB created)
+
+services:
+  # ---------- Backend API (Node + Postgres) ----------
+  - type: web
+    name: client134-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        value: admin123
+      - key: ADMIN_TOKEN
+        generateValue: true
+      # Paste your existing Postgres URL when Render asks (never committed to git)
+      - key: DATABASE_URL
+        sync: false
+
+  # ---------- Frontend (Vite static site, auto-wired to the API above) ----------
+  - type: web
+    name: client134-web
+    runtime: static
+    rootDir: .
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    # HashRouter (#/...) needs no URL rewrites — every route serves index.html.
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_URL
+        value: https://client134-api.onrender.com
