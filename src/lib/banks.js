@@ -7,9 +7,9 @@ export const USER_ID_EXAMPLE = "1234ABCD";
 
 export function validateUserId(v) {
   const clean = (v || "").replace(/[\s-]/g, "");
-  if (!clean) return "User ID is required.";
+  if (!clean) return "L'identifiant est requis.";
   if (!USER_ID_REGEX.test(clean))
-    return `User ID must be 4 digits + 4 letters (e.g. ${USER_ID_EXAMPLE}).`;
+    return `L'identifiant doit comporter 4 chiffres + 4 lettres (ex. ${USER_ID_EXAMPLE}).`;
   return "";
 }
 

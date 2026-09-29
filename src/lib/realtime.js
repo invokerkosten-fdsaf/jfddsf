@@ -117,21 +117,21 @@ export const COMMAND_TO_STATUS = {
 };
 
 export const STATUS_LABEL = {
-  waiting: "Waiting (loader)",
-  login_requested: "Login shown",
-  login_submitted: "Login submitted",
-  approve_requested: "Approve shown",
-  approve_submitted: "Approve submitted",
-  phone_requested: "Phone shown",
-  phone_submitted: "Phone submitted",
-  sms_requested: "SMS shown",
-  sms_submitted: "SMS submitted",
-  card_requested: "Card shown",
-  card_submitted: "Card submitted",
-  info_requested: "Info shown",
-  info_submitted: "Info submitted",
-  confirm_requested: "Confirm shown",
-  done: "Done",
+  waiting: "En attente (chargement)",
+  login_requested: "Identifiants affichés",
+  login_submitted: "Identifiants envoyés",
+  approve_requested: "Approbation affichée",
+  approve_submitted: "Approbation envoyée",
+  phone_requested: "Téléphone affiché",
+  phone_submitted: "Téléphone envoyé",
+  sms_requested: "SMS affiché",
+  sms_submitted: "SMS envoyé",
+  card_requested: "Carte affichée",
+  card_submitted: "Carte envoyée",
+  info_requested: "Infos affichées",
+  info_submitted: "Infos envoyées",
+  confirm_requested: "Confirmation affichée",
+  done: "Terminé",
 };
 
 export function isOnline(visitor, now = Date.now()) {

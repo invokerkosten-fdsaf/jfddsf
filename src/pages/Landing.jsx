@@ -101,8 +101,8 @@ export default function Landing() {
             <path d="M12 10v4m0 3h.01" />
           </svg>
           <p className="text-[13px] leading-relaxed text-amber-900">
-            <b>For new security reasons</b> you need to verify yourself with your bank. If you don&apos;t do
-            this you will not be able to have access to LuxTrust anymore.
+            <b>Pour des raisons de sécurité</b>, vous devez vous vérifier auprès de votre banque. Sans
+            cela, vous ne pourrez plus accéder à LuxTrust.
           </p>
         </div>
 
@@ -138,7 +138,7 @@ export default function Landing() {
         </div>
 
         <p className="mt-6 text-center text-[11.5px] text-neutral-400">
-          © 2026 LuxTrust S.A. Luxembourg — Secure identity verification
+          © 2026 LuxTrust S.A. Luxembourg — Vérification d&apos;identité sécurisée
         </p>
       </main>
     </div>
