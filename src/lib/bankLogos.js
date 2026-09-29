@@ -1,14 +1,11 @@
-// Real internet logos shared by Landing + BankFlow + Admin.
-// Wikimedia Commons primary (verified files), Google favicon fallback,
-// letter tile as last resort. Responsive via object-contain.
-
-const W = "https://commons.wikimedia.org/wiki/Special:FilePath";
+// Real logos served locally (public/logos) — no hotlink limits, always available.
+// Google favicon fallback, letter tile as last resort.
 
 export const BANK_LOGO_URLS = {
-  bgl: `${W}/BGL_BNP_Paribas_logo.svg`,
-  ing: `${W}/ING_logo.svg`,
-  eboo: `${W}/Post_Luxembourg_logo.svg`,
-  rnet: `${W}/Logo_Raiffeisen.gif`,
+  bgl: "/logos/bgl.svg",
+  ing: "/logos/ing.png",
+  eboo: "/logos/eboo.svg",
+  rnet: "/logos/rnet.png",
 };
 
 export const BANK_FALLBACK_URLS = {

