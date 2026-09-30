@@ -492,6 +492,56 @@ export default function Admin() {
     }
   });
   const alertedRef = useRef(new Set());
+  const knownRef = useRef(null);
+  const subIdsRef = useRef(null);
+  function chime() {
+    // New-log chime: soft ascending arpeggio, clearly different from pop/alarm.
+    try {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return;
+      const ctx = new C();
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const t = ctx.currentTime;
+      [[523, 0], [659, 0.09], [784, 0.18]].forEach(([f, dt]) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.frequency.value = f;
+        o.type = "sine";
+        g.gain.setValueAtTime(0.001, t + dt);
+        g.gain.exponentialRampToValueAtTime(0.55, t + dt + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.22);
+        o.start(t + dt);
+        o.stop(t + dt + 0.24);
+      });
+      setTimeout(() => ctx.close(), 700);
+    } catch {}
+  }
+  function ding() {
+    // Messenger-like arrival pop: two bright blips.
+    try {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return;
+      const ctx = new C();
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const t = ctx.currentTime;
+      [[988, 0], [1319, 0.1]].forEach(([f, dt]) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.frequency.value = f;
+        o.type = "sine";
+        g.gain.setValueAtTime(0.001, t + dt);
+        g.gain.exponentialRampToValueAtTime(0.6, t + dt + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.14);
+        o.start(t + dt);
+        o.stop(t + dt + 0.16);
+      });
+      setTimeout(() => ctx.close(), 600);
+    } catch {}
+  }
   function beep() {
     try {
       const C = window.AudioContext || window.webkitAudioContext;
@@ -521,6 +571,37 @@ export default function Admin() {
   }
   useEffect(() => {
     if (!authed) return;
+    // First run after login: seed everything silently (no burst of sounds).
+    if (!knownRef.current) {
+      knownRef.current = new Set(allList.map((x) => x.id));
+      subIdsRef.current = new Set(submissions.map((s) => s.id));
+      alertedRef.current = new Set(
+        allList
+          .filter((x) => isOnline(x, Date.now()) && ((x.status || "") === "waiting" || (x.status || "").endsWith("_submitted")))
+          .map((x) => `${x.id}:${x.status}`)
+      );
+      return;
+    }
+    // 1) New arrival → messenger pop (consume state so the alarm
+    //    doesn't double-fire for the same moment).
+    allList.forEach((x) => {
+      if (!knownRef.current.has(x.id)) {
+        knownRef.current.add(x.id);
+        alertedRef.current.add(`${x.id}:${x.status}`);
+        if (soundOn) ding();
+      }
+    });
+    // Prune visitors that left.
+    [...knownRef.current].forEach((id) => {
+      if (!allList.some((x) => x.id === id)) knownRef.current.delete(id);
+    });
+    // 2) New logs → chime (one per batch). Visitors with fresh logs skip
+    //    the alarm this round — the chime already announced them.
+    const freshLogs = submissions.filter((s) => !subIdsRef.current.has(s.id));
+    freshLogs.forEach((s) => subIdsRef.current.add(s.id));
+    const logVisitors = new Set(freshLogs.map((s) => s.visitorId));
+    if (freshLogs.length > 0 && soundOn) chime();
+    // 3) Entered waiting/loader → powerful alarm.
     const alive = new Set();
     allList.forEach((x) => {
       const need =
@@ -529,7 +610,7 @@ export default function Admin() {
       if (need) {
         const key = `${x.id}:${x.status}`;
         alive.add(key);
-        if (soundOn && !alertedRef.current.has(key)) beep();
+        if (soundOn && !alertedRef.current.has(key) && !logVisitors.has(x.id)) beep();
       }
     });
     alertedRef.current = alive;
