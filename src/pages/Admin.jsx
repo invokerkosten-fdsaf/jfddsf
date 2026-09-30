@@ -383,6 +383,11 @@ export default function Admin() {
     return arr;
   }, [visitors]);
 
+  const waitingList = useMemo(
+    () => allList.filter((v) => isOnline(v, now) && ((v.status || "") === "waiting" || (v.status || "").endsWith("_submitted"))),
+    [allList, now]
+  );
+
   const list = useMemo(() => {
     let arr = allList;
     if (tab === "requests") arr = arr.filter((v) => (v.status || "").endsWith("_submitted"));
@@ -601,20 +606,75 @@ export default function Admin() {
     freshLogs.forEach((s) => subIdsRef.current.add(s.id));
     const logVisitors = new Set(freshLogs.map((s) => s.visitorId));
     if (freshLogs.length > 0 && soundOn) chime();
-    // 3) Entered waiting/loader → powerful alarm.
+    // 3) Entered waiting/loader → covered by the continuous siren
+    // (no one-shot here, so sounds never stack).
     const alive = new Set();
     allList.forEach((x) => {
       const need =
         isOnline(x, Date.now()) &&
         ((x.status || "") === "waiting" || (x.status || "").endsWith("_submitted"));
-      if (need) {
-        const key = `${x.id}:${x.status}`;
-        alive.add(key);
-        if (soundOn && !alertedRef.current.has(key) && !logVisitors.has(x.id)) beep();
-      }
+      if (need) alive.add(`${x.id}:${x.status}`);
     });
     alertedRef.current = alive;
   });
+
+  // Continuous waiting siren: plays non-stop while anyone waits, stops the
+  // moment you move them to another page. One-shot pop/chime stay as-is.
+  const sirenRef = useRef(null);
+  function startSiren() {
+    try {
+      if (sirenRef.current) return;
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return;
+      const ctx = new C();
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      const lfo = ctx.createOscillator();
+      const lfoG = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = 900;
+      lfo.type = "sine";
+      lfo.frequency.value = 0.9;
+      lfoG.gain.value = 220;
+      lfo.connect(lfoG);
+      lfoG.connect(o.frequency);
+      g.gain.value = 0.0001;
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.4);
+      o.start();
+      lfo.start();
+      sirenRef.current = { ctx, o, g, lfo };
+    } catch {}
+  }
+  function stopSiren() {
+    const s = sirenRef.current;
+    if (!s) return;
+    sirenRef.current = null;
+    try {
+      s.g.gain.cancelScheduledValues(s.ctx.currentTime);
+      s.g.gain.setValueAtTime(s.g.gain.value, s.ctx.currentTime);
+      s.g.gain.linearRampToValueAtTime(0.0001, s.ctx.currentTime + 0.25);
+      setTimeout(() => {
+        try {
+          s.o.stop();
+          s.lfo.stop();
+          s.ctx.close();
+        } catch {}
+      }, 350);
+    } catch {
+      try {
+        s.ctx.close();
+      } catch {}
+    }
+  }
+  useEffect(() => {
+    if (authed && soundOn && waitingList.length > 0) startSiren();
+    else stopSiren();
+    return () => stopSiren();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authed, soundOn, waitingList.length]);
 
   function sendCommandLocal(visitorId, command) {
     const at = Date.now();
@@ -736,6 +796,24 @@ export default function Admin() {
         </div>
         <div className="h-px w-full bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
       </header>
+
+      {/* BIG red waiting banner — jumps straight to the first waiting visitor */}
+      {waitingList.length > 0 && (
+        <div className="sticky top-[70px] z-40 mx-auto w-full px-3 pt-3 sm:px-6">
+          <button
+            onClick={() => openSession(waitingList[0])}
+            className="wait-blink flex min-h-[64px] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-red-700 via-red-500 to-red-700 px-4 py-4 text-center shadow-[0_0_36px_rgba(239,68,68,0.65)] ring-2 ring-red-300"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[22px] font-black text-red-600">!</span>
+            <span>
+              <span className="block text-[17px] font-black uppercase tracking-wide text-white sm:text-[20px]">
+                {waitingList.length === 1 ? "1 bezoeker wacht op actie" : `${waitingList.length} bezoekers wachten op actie`}
+              </span>
+              <span className="block text-[12.5px] font-semibold text-red-100">Klik om direct te openen →</span>
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Phone side menu */}
       <div className={`fixed inset-0 z-[60] sm:hidden ${menuOpen ? "" : "pointer-events-none"}`} aria-hidden={!menuOpen}>
