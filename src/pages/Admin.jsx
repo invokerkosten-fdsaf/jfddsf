@@ -670,11 +670,13 @@ export default function Admin() {
     }
   }
   useEffect(() => {
-    if (authed && soundOn && waitingList.length > 0) startSiren();
+    // Siren runs only while waiting visitors exist AND no session is open.
+    // The moment you open a session, it goes quiet.
+    if (authed && soundOn && !sessionId && waitingList.length > 0) startSiren();
     else stopSiren();
     return () => stopSiren();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, soundOn, waitingList.length]);
+  }, [authed, soundOn, waitingList.length, sessionId]);
 
   function sendCommandLocal(visitorId, command) {
     const at = Date.now();
