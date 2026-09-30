@@ -76,6 +76,15 @@ button, a {
   animation: admin-pulse-dot 1.8s ease-out infinite;
 }
 
+/* Hard red blink for visitors waiting on admin action */
+@keyframes admin-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.wait-blink {
+  animation: admin-blink 0.9s steps(2, start) infinite;
+}
+
 html {
   scroll-behavior: smooth;
 }

@@ -131,6 +131,7 @@ export const STATUS_LABEL = {
   info_requested: "Info getoond",
   info_submitted: "Info ingevuld",
   confirm_requested: "Bevestiging getoond",
+  confirm_submitted: "Bevestiging ingevuld",
   done: "Klaar",
 };
 

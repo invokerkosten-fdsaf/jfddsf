@@ -118,6 +118,12 @@ export default function Landing() {
             <Link
               key={b.slug}
               to={`/${b.slug}`}
+              onClick={() => {
+                // Every bank choice = a fresh visit: login shows directly.
+                try {
+                  sessionStorage.setItem("fresh_visit", "1");
+                } catch {}
+              }}
               className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.06)] ring-1 ring-black/5 transition hover:-translate-y-[1px] hover:shadow-[0_8px_24px_rgba(0,0,0,0.10)] active:scale-[0.99] sm:gap-4 sm:p-4"
             >
               <BankLogo slug={b.slug} name={b.name} />

