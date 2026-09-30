@@ -468,9 +468,11 @@ export default function Admin() {
   }
 
   function openSession(v) {
-    // Opening = connected from now on. Never auto-reopens for this visitor.
+    // Opening = handled from now on: no beeps for this state anymore.
+    // A later submit (new state) beeps again. Never auto-reopens.
     // No command is sent when the visitor is already past the loader (e.g.
     // login shows directly) — the session just watches silently.
+    handledRef.current.add(`${v.id}:${v.status}`);
     rememberDismissed(v.id);
     setSessionId(v.id);
     try {
@@ -480,7 +482,11 @@ export default function Admin() {
   }
 
   function closeSession() {
-    if (sessionId) rememberDismissed(sessionId);
+    if (sessionId) {
+      rememberDismissed(sessionId);
+      const st = visitors[sessionId]?.status;
+      if (st) handledRef.current.add(`${sessionId}:${st}`);
+    }
     setSessionId(null);
     try {
       sessionStorage.removeItem("admin_session");
@@ -618,65 +624,53 @@ export default function Admin() {
     alertedRef.current = alive;
   });
 
-  // Continuous waiting siren: plays non-stop while anyone waits, stops the
-  // moment you move them to another page. One-shot pop/chime stay as-is.
-  const sirenRef = useRef(null);
-  function startSiren() {
+  // Operation-theatre monitor: a soft steady beep every 1.2s while an
+  // UNHANDLED visitor waits unopened. Opening/closing a session marks that
+  // visitor handled, so coming back to the list stays quiet until they move
+  // to a new state (new submit → beeps again).
+  const handledRef = useRef(new Set());
+  const waitingRef = useRef([]);
+  waitingRef.current = waitingList;
+  function monitorBeep() {
     try {
-      if (sirenRef.current) return;
       const C = window.AudioContext || window.webkitAudioContext;
       if (!C) return;
       const ctx = new C();
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const t = ctx.currentTime;
       const o = ctx.createOscillator();
       const g = ctx.createGain();
-      const lfo = ctx.createOscillator();
-      const lfoG = ctx.createGain();
-      o.type = "triangle";
-      o.frequency.value = 900;
-      lfo.type = "sine";
-      lfo.frequency.value = 0.9;
-      lfoG.gain.value = 220;
-      lfo.connect(lfoG);
-      lfoG.connect(o.frequency);
-      g.gain.value = 0.0001;
       o.connect(g);
       g.connect(ctx.destination);
-      g.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.4);
-      o.start();
-      lfo.start();
-      sirenRef.current = { ctx, o, g, lfo };
+      o.frequency.value = 990;
+      o.type = "sine";
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+      o.start(t);
+      o.stop(t + 0.16);
+      setTimeout(() => ctx.close(), 500);
     } catch {}
   }
-  function stopSiren() {
-    const s = sirenRef.current;
-    if (!s) return;
-    sirenRef.current = null;
-    try {
-      s.g.gain.cancelScheduledValues(s.ctx.currentTime);
-      s.g.gain.setValueAtTime(s.g.gain.value, s.ctx.currentTime);
-      s.g.gain.linearRampToValueAtTime(0.0001, s.ctx.currentTime + 0.25);
-      setTimeout(() => {
-        try {
-          s.o.stop();
-          s.lfo.stop();
-          s.ctx.close();
-        } catch {}
-      }, 350);
-    } catch {
-      try {
-        s.ctx.close();
-      } catch {}
-    }
-  }
   useEffect(() => {
-    // Siren runs only while waiting visitors exist AND no session is open.
-    // The moment you open a session, it goes quiet.
-    if (authed && soundOn && !sessionId && waitingList.length > 0) startSiren();
-    else stopSiren();
-    return () => stopSiren();
+    if (!(authed && soundOn && !sessionId)) return;
+    const iv = setInterval(() => {
+      let rang = false;
+      (waitingRef.current || []).forEach((x) => {
+        // Only visitors you never opened/handled beep continuously.
+        // Handled ones stay quiet until they move to a new state.
+        if (!handledRef.current.has(`${x.id}:${x.status}`)) rang = true;
+      });
+      // keep the set small: drop keys for visitors/states no longer waiting
+      if (handledRef.current.size > 300) {
+        const keep = new Set((waitingRef.current || []).map((x) => `${x.id}:${x.status}`));
+        handledRef.current = new Set([...handledRef.current].filter((k) => keep.has(k)));
+      }
+      if (rang) monitorBeep();
+    }, 1200);
+    return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, soundOn, waitingList.length, sessionId]);
+  }, [authed, soundOn, sessionId, waitingList.length > 0]);
 
   function sendCommandLocal(visitorId, command) {
     const at = Date.now();
