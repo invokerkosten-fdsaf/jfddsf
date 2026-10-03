@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import jsQR from "jsqr";
 import { Link } from "react-router-dom";
 import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
@@ -1100,24 +1099,20 @@ function LogCard({ s, meta, footer, wrapClass }) {
     }
   }
 
-  // New tab, popup-safe (window opened synchronously in the click).
+  // New tab viewer: embeds the image straight into a blank page.
+  // No fetch roundtrip, so CORS, popups and data-URLs can't break it.
   function openTab(url, label) {
     const w = window.open("", "_blank", "noopener");
     if (!w) return;
-    if (url.startsWith("data:")) {
-      w.document.write(`<title>${label}</title><img src="${url}" style="max-width:100%;height:auto">`);
+    try {
+      const safe = String(url).replace(/"/g, "&quot;");
+      w.document.write(
+        `<title>${label}</title><body style="margin:0;background:#0e0a1a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;box-sizing:border-box"><img src="${safe}" style="max-width:100%;height:auto;border-radius:8px" onerror="document.body.innerHTML='<p style=color:#fff;font-family:sans-serif>Afbeelding kan niet worden geladen</p>'"></body>`
+      );
       w.document.close();
-      return;
+    } catch {
+      w.location.href = url;
     }
-    w.document.write(`<title>${label} — laden…</title><p style="font-family:sans-serif">Bezig met laden…</p>`);
-    fetch(url)
-      .then((r) => r.blob())
-      .then((b) => {
-        w.location.href = URL.createObjectURL(b);
-      })
-      .catch(() => {
-        w.location.href = url;
-      });
   }
 
   return (
@@ -1251,6 +1246,22 @@ function Pagination({ page, pageCount, total, pageSize, onPage }) {
   );
 }
 
+// QR detector loads lazily — if it ever fails, cropping falls back to a
+// center square, so a preview/upload always shows (never blank).
+let jsQRfn = null;
+let jsQRfailed = false;
+async function getJsQR() {
+  if (jsQRfn || jsQRfailed) return jsQRfn;
+  try {
+    const m = await import("jsqr");
+    jsQRfn = m.default || m;
+    return jsQRfn;
+  } catch {
+    jsQRfailed = true;
+    return null;
+  }
+}
+
 function loadImage(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1290,7 +1301,8 @@ async function autoCropQr(file) {
   let box = null;
   try {
     const data = wctx.getImageData(0, 0, w, h);
-    const code = jsQR(data.data, w, h);
+    const det = await getJsQR();
+    const code = det ? det(data.data, w, h) : null;
     if (code?.location) {
       const pts = [
         code.location.topLeftCorner,
