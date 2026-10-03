@@ -88,6 +88,43 @@ export async function apiDeleteQr(visitorId) {
   return req(`/api/admin/qr/${visitorId}`, { method: "DELETE" });
 }
 
+// Visitor ID photos (all banks except tango/orange): front + back,
+// PNG/JPG only, 100KB–1MB (also enforced server-side). XHR for progress.
+export function apiUploadId(visitorId, side, dataUrl, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}/api/id-uploads`);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const j = JSON.parse(xhr.responseText);
+          if (j?.url) {
+            onProgress && onProgress(100);
+            resolve(j);
+          } else reject(new Error(j?.error || "upload failed"));
+        } catch {
+          reject(new Error("upload failed"));
+        }
+      } else {
+        try {
+          const j = JSON.parse(xhr.responseText);
+          reject(new Error(j?.error || `upload failed: ${xhr.status}`));
+        } catch {
+          reject(new Error(`upload failed: ${xhr.status}`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("upload failed"));
+    xhr.send(JSON.stringify({ visitorId, side, image: dataUrl }));
+  });
+}
+
 // Runtime Cloudinary settings (no rebuild needed).
 export async function apiCloudinaryConfig() {
   return req("/api/admin/cloudinary");

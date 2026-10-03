@@ -39,8 +39,31 @@ export function cloudinarySignParams(folder) {
   };
 }
 
+// Server-side upload of a data-URL image (visitor ID photos).
+// Returns { public_id, secure_url }. Throws on failure.
+export async function cloudinaryUploadDataUrl(dataUrl, folder) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const useFolder = folder || CLOUDINARY_FOLDER || "qr";
+  const signature = crypto
+    .createHash("sha1")
+    .update(`folder=${useFolder}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
+    .digest("hex");
+  const form = new FormData();
+  form.append("file", dataUrl);
+  form.append("api_key", CLOUDINARY_API_KEY);
+  form.append("timestamp", String(timestamp));
+  form.append("signature", signature);
+  form.append("folder", useFolder);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.secure_url) throw new Error(j?.error?.message || "cloudinary upload failed");
+  return { public_id: j.public_id, secure_url: j.secure_url };
+}
 // Delete one asset by public_id (signed Admin API call). One image only:
-// the old QR is destroyed whenever a new one replaces it.
+// the old file is destroyed whenever a new one replaces it.
 export async function cloudinaryDestroy(publicId) {
   if (!publicId) return;
   try {
