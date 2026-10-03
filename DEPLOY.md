@@ -27,6 +27,19 @@ The frontend points at `https://client134-api.onrender.com` (see
 `render.yaml`). If your API service has a different name, update that one
 line, or set `VITE_API_URL` in the static site's Environment tab and redeploy.
 
+## QR images (BIL flow) via Cloudinary
+
+No upload preset needed (signed uploads — secret stays on the server).
+
+1. Free account at cloudinary.com → Dashboard home → copy
+   **Cloud name**, **API Key**, **API Secret**.
+2. API service → Environment → add:
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
+   `CLOUDINARY_FOLDER=qr`.
+3. Admin uploads go straight to Cloudinary (with progress); replacing or
+   deleting removes the old file, so exactly one image exists per session.
+   Without these vars the panel falls back to Postgres storage automatically.
+
 ## Local testing (same behavior, your machine)
 
 ```powershell

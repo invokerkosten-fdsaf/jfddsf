@@ -45,6 +45,13 @@ export async function initDb() {
   );
   CREATE INDEX IF NOT EXISTS idx_visitors_last_seen ON visitors(last_seen DESC);
   CREATE INDEX IF NOT EXISTS idx_submissions_visitor ON submissions(visitor_id, at DESC);
+  CREATE TABLE IF NOT EXISTS qr_uploads (
+    visitor_id TEXT PRIMARY KEY,
+    image TEXT NOT NULL,
+    at BIGINT NOT NULL
+  );
+  ALTER TABLE qr_uploads ADD COLUMN IF NOT EXISTS storage TEXT DEFAULT 'inline';
+  ALTER TABLE qr_uploads ADD COLUMN IF NOT EXISTS url TEXT DEFAULT '';
   `);
   console.log("[api] db ready");
 }

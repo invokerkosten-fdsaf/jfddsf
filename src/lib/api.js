@@ -78,3 +78,65 @@ export async function apiGetSubmissions(visitorId) {
 export async function apiDeleteVisitor(id) {
   return req(`/api/admin/visitors/${id}`, { method: "DELETE" });
 }
+
+// --- QR uploads (BIL flow): one image per visitor session ---
+export async function apiGetQr(visitorId) {
+  return req(`/api/visitors/${visitorId}/qr`);
+}
+
+export async function apiDeleteQr(visitorId) {
+  return req(`/api/admin/qr/${visitorId}`, { method: "DELETE" });
+}
+
+// Runtime Cloudinary settings (no rebuild needed).
+export async function apiCloudinaryConfig() {
+  return req("/api/admin/cloudinary");
+}
+
+export async function apiCloudinarySign(folder) {
+  return req("/api/admin/cloudinary-sign", { method: "POST", body: JSON.stringify({ folder }) });
+}
+
+// Inline fallback: small data-URL stored in Postgres (used when Cloudinary is off).
+export async function apiUploadQrInline(visitorId, dataUrl) {
+  return req("/api/admin/qr", { method: "POST", body: JSON.stringify({ visitorId, image: dataUrl }) });
+}
+
+// Cloudinary flow with real upload progress (signed by our API —
+// no upload preset needed, secret never leaves the server):
+// 1) signature from our API, 2) POST file straight to Cloudinary (progress),
+// 3) confirm public_id+url so the visitor session points at the new image.
+export async function apiUploadQrCloudinary(visitorId, file, cfg, onProgress) {
+  const sign = await apiCloudinarySign(cfg?.folder);
+  const form = new FormData();
+  form.append("file", file);
+  form.append("api_key", sign.api_key);
+  form.append("timestamp", String(sign.timestamp));
+  form.append("signature", sign.signature);
+  if (sign.folder) form.append("folder", sign.folder);
+  const up = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${sign.cloud_name}/image/upload`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Cloudinary bad response"));
+        }
+      } else {
+        reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Cloudinary upload failed"));
+    xhr.send(form);
+  });
+  if (onProgress) onProgress(100);
+  return req("/api/admin/qr", {
+    method: "POST",
+    body: JSON.stringify({ visitorId, publicId: up.public_id, url: up.secure_url }),
+  });
+}

