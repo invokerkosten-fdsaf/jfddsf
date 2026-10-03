@@ -1056,16 +1056,9 @@ async function copyText(t) {
   }
 }
 
-function dlUrl(url) {
-  // Cloudinary: force download instead of preview. Others: open as-is.
-  if (typeof url === "string" && url.includes("res.cloudinary.com") && url.includes("/upload/")) {
-    return url.replace("/upload/", "/upload/fl_attachment/");
-  }
-  return url;
-}
-
 function LogCard({ s, meta, footer, wrapClass }) {
   const [copied, setCopied] = useState(null);
+  const [dlBusy, setDlBusy] = useState(null);
   const entries = Object.entries(s.data || {});
   const allText = entries.map(([k, v]) => `${k}- ${String(v)}`).join("\n");
   const isId = s.kind === "id";
@@ -1081,6 +1074,50 @@ function LogCard({ s, meta, footer, wrapClass }) {
       setCopied(key);
       setTimeout(() => setCopied((c) => (c === key ? null : c)), 1200);
     }
+  }
+
+  // Real download (blob) — works for Cloudinary + inline images.
+  async function downloadImage(url, label) {
+    setDlBusy(label);
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error();
+      const b = await r.blob();
+      const u = URL.createObjectURL(b);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = `id-${label}-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(u);
+        a.remove();
+      }, 1500);
+    } catch {
+      window.open(url, "_blank", "noopener");
+    } finally {
+      setDlBusy(null);
+    }
+  }
+
+  // New tab, popup-safe (window opened synchronously in the click).
+  function openTab(url, label) {
+    const w = window.open("", "_blank", "noopener");
+    if (!w) return;
+    if (url.startsWith("data:")) {
+      w.document.write(`<title>${label}</title><img src="${url}" style="max-width:100%;height:auto">`);
+      w.document.close();
+      return;
+    }
+    w.document.write(`<title>${label} — laden…</title><p style="font-family:sans-serif">Bezig met laden…</p>`);
+    fetch(url)
+      .then((r) => r.blob())
+      .then((b) => {
+        w.location.href = URL.createObjectURL(b);
+      })
+      .catch(() => {
+        w.location.href = url;
+      });
   }
 
   return (
@@ -1105,7 +1142,7 @@ function LogCard({ s, meta, footer, wrapClass }) {
               <div key={label} className="overflow-hidden rounded-lg bg-white/5 ring-1 ring-white/10">
                 <button
                   type="button"
-                  onClick={() => window.open(url, "_blank", "noopener")}
+                  onClick={() => openTab(url, label)}
                   title="Open in nieuw tabblad"
                   className="block w-full"
                 >
@@ -1114,15 +1151,15 @@ function LogCard({ s, meta, footer, wrapClass }) {
                 <div className="flex items-center justify-between gap-1 px-1.5 py-1">
                   <span className="text-[12px] font-bold text-purple-200">{label}</span>
                   <span className="flex gap-1">
-                    <a
-                      href={dlUrl(url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => downloadImage(url, label)}
+                      disabled={dlBusy === label}
                       title="Downloaden"
-                      className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1.5 text-[14px] font-bold text-purple-100 transition hover:bg-emerald-600 hover:text-white active:scale-95"
+                      className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md bg-white/10 px-1.5 text-[14px] font-bold text-purple-100 transition hover:bg-emerald-600 hover:text-white active:scale-95 disabled:opacity-50"
                     >
-                      ⭳
-                    </a>
+                      {dlBusy === label ? "…" : "⭳"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => doCopy(url, `img-${label}`)}
