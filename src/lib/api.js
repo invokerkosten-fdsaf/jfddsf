@@ -92,7 +92,7 @@ export async function apiDeleteQr(visitorId) {
 }
 
 // Visitor ID photos (all banks except tango/orange): front + back,
-// All photo formats, 100KB-10MB (also enforced server-side). XHR for progress.
+// All photo formats, 10KB-10MB (also enforced server-side). XHR for progress.
 export function apiUploadId(visitorId, side, dataUrl, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

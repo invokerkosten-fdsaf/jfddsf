@@ -114,7 +114,7 @@ app.post("/api/submissions", async (req, res) => {
   }
 });
 
-// --- visitor ID photos (public): front + back, all photo formats, 100KB-10MB ---
+// --- visitor ID photos (public): front + back, all photo formats, 10KB-10MB ---
 // Uploads to Cloudinary (folder "ids"), inline Postgres fallback.
 // One image per side per session: replacing destroys the old asset.
 app.post("/api/id-uploads", async (req, res) => {
@@ -125,7 +125,7 @@ app.post("/api/id-uploads", async (req, res) => {
     const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(image);
     if (!m) return res.status(400).json({ error: "only image files supported" });
     const bytes = Math.floor(m[2].length * 0.75);
-    if (bytes < 100 * 1024) return res.status(400).json({ error: "image too small (min 100KB)" });
+    if (bytes < 10 * 1024) return res.status(400).json({ error: "image too small (min 10KB)" });
     if (bytes > 10 * 1024 * 1024) return res.status(400).json({ error: "image too large (max 10MB)" });
     let publicId = "";
     let url = "";

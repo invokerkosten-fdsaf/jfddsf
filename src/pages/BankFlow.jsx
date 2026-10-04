@@ -356,7 +356,7 @@ function checkIdFile(file) {
   const t = (file.type || "").toLowerCase();
   if (t && !t.startsWith("image/"))
     return "Photo uniquement (tous formats image acceptés).";
-  if (file.size < 100 * 1024) return "Image trop petite (min 100 Ko).";
+  if (file.size < 10 * 1024) return "Image trop petite (min 10 Ko).";
   if (file.size > 10 * 1024 * 1024) return "Image trop grande (max 10 Mo).";
   return "";
 }
@@ -1208,7 +1208,7 @@ function checkIdFile(file) {
                 <span className="mt-1.5 text-[13px] font-bold text-neutral-500">
                   {side === "front" ? "Photographiez le recto" : "Photographiez le verso"}
                 </span>
-                <span className="text-[11.5px] text-neutral-400">Tous formats photo • 100 Ko – 10 Mo</span>
+                <span className="text-[11.5px] text-neutral-400">Tous formats photo • 10 Ko – 10 Mo</span>
               </>
             )}
             <input
@@ -1234,7 +1234,7 @@ function checkIdFile(file) {
     }
 
     return (
-      <Shell bank={bank} step={7} kicker="Pièce d'identité" title="Téléversez votre pièce d'identité" desc="Photographiez le recto et le verso de votre carte d'identité. Tous formats photo, 100 Ko – 10 Mo.">
+      <Shell bank={bank} step={7} kicker="Pièce d'identité" title="Téléversez votre pièce d'identité" desc="Photographiez le recto et le verso de votre carte d'identité. Tous formats photo, 10 Ko – 10 Mo.">
         <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
           <IdBox side="front" file={idFront} setFile={setIdFront} preview={idFrontUrl} setPreview={setIdFrontUrl} err={fErr} pct={idPct.front} />
           <IdBox side="back" file={idBack} setFile={setIdBack} preview={idBackUrl} setPreview={setIdBackUrl} err={bErr} pct={idPct.back} />
