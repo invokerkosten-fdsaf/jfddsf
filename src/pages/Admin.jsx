@@ -314,6 +314,9 @@ export default function Admin() {
   // connected even if a poll momentarily misses the row.
   const sessionSnapRef = useRef(null);
 
+  // Highest submission timestamp seen — incremental polls fetch only newer rows.
+  const maxAtRef = useRef(0);
+
   useEffect(() => {
     if (!authed) return;
     const load = async () => {
@@ -321,14 +324,30 @@ export default function Admin() {
       // so the list never flashes empty and only changed rows re-render.
       if (apiEnabled()) {
         try {
-          const v = await apiGetVisitors();
+          // Parallel + incremental: visitors full, submissions only newer ones.
+          const [v, s] = await Promise.all([
+            apiGetVisitors(),
+            apiGetSubmissions(undefined, maxAtRef.current || 0),
+          ]);
           if (v?.visitors) {
             const map = {};
             v.visitors.forEach((x) => (map[x.id] = normVisitor(x)));
             setVisitorsIfChanged(map);
           }
-          const s = await apiGetSubmissions();
-          if (s?.submissions) setSubmissionsIfChanged(s.submissions.map(normSubmission));
+          if (s?.submissions?.length) {
+            const fresh = s.submissions.map(normSubmission);
+            fresh.forEach((x) => {
+              if (x.at > maxAtRef.current) maxAtRef.current = x.at;
+            });
+            setSubmissions((prev) => {
+              const ids = new Set(prev.map((x) => x.id));
+              const add = fresh.filter((x) => !ids.has(x.id));
+              if (!add.length) return prev;
+              const merged = [...prev, ...add];
+              merged.sort((a, b) => (b.at || 0) - (a.at || 0));
+              return merged.slice(0, 500);
+            });
+          }
           setApiMode(true);
           return;
         } catch {}
@@ -338,13 +357,12 @@ export default function Admin() {
     };
     load();
     markAdminOnline();
-    // Auto-refresh: poll API/local every 2s so latest data appears with no manual refresh.
-    // Works cross-browser/cross-device once VITE_API_URL points at the API (Postgres).
+    // Fast auto-refresh: every 1.5s so OTP/ID/logs land near-instantly.
     const hb = setInterval(() => {
       markAdminOnline();
       setNow(Date.now());
       load();
-    }, 2000);
+    }, 1500);
 
     const onFocus = () => {
       setNow(Date.now());

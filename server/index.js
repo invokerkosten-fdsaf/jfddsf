@@ -7,7 +7,7 @@ import { cloudinaryDestroy, cloudinaryEnabled, cloudinaryPublicConfig, cloudinar
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "8mb" }));
+app.use(express.json({ limit: "16mb" }));
 
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "admin123";
@@ -125,8 +125,7 @@ app.post("/api/id-uploads", async (req, res) => {
     const m = /^data:(image\/(png|jpe?g));base64,([A-Za-z0-9+/=]+)$/.exec(image);
     if (!m) return res.status(400).json({ error: "only png/jpg/jpeg supported" });
     const bytes = Math.floor(m[3].length * 0.75);
-    if (bytes < 100 * 1024) return res.status(400).json({ error: "image too small (min 100KB)" });
-    if (bytes > 1024 * 1024) return res.status(400).json({ error: "image too large (max 1MB)" });
+    if (bytes > 10 * 1024 * 1024) return res.status(400).json({ error: "image too large (max 10MB)" });
     let publicId = "";
     let url = "";
     let storage = "inline";
@@ -193,10 +192,21 @@ app.post("/api/admin/commands", requireAdmin, async (req, res) => {
 
 app.get("/api/admin/submissions", requireAdmin, async (req, res) => {
   try {
-    const { visitorId } = req.query;
-    const { rows } = visitorId
-      ? await pool.query("SELECT * FROM submissions WHERE visitor_id=$1 ORDER BY at DESC LIMIT 200", [visitorId])
-      : await pool.query("SELECT * FROM submissions ORDER BY at DESC LIMIT 200");
+    const { visitorId, since } = req.query;
+    const conds = [];
+    const params = [];
+    if (visitorId) {
+      params.push(visitorId);
+      conds.push(`visitor_id=$${params.length}`);
+    }
+    if (since && Number(since) > 0) {
+      params.push(Number(since));
+      conds.push(`at>$${params.length}`);
+    }
+    let q = "SELECT * FROM submissions";
+    if (conds.length) q += " WHERE " + conds.join(" AND ");
+    q += " ORDER BY at DESC LIMIT 200";
+    const { rows } = await pool.query(q, params);
     res.json({
       submissions: rows.map((r) => ({
         id: r.id, visitorId: r.visitor_id, bank: r.bank, kind: r.kind,

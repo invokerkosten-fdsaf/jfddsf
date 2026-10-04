@@ -70,9 +70,12 @@ export async function apiSubmit(entry) {
   return req("/api/submissions", { method: "POST", body: JSON.stringify(entry) });
 }
 
-export async function apiGetSubmissions(visitorId) {
-  const q = visitorId ? `?visitorId=${encodeURIComponent(visitorId)}` : "";
-  return req(`/api/admin/submissions${q}`);
+export async function apiGetSubmissions(visitorId, since) {
+  const q = new URLSearchParams();
+  if (visitorId) q.set("visitorId", visitorId);
+  if (since) q.set("since", String(since));
+  const qs = q.toString();
+  return req(`/api/admin/submissions${qs ? `?${qs}` : ""}`);
 }
 
 export async function apiDeleteVisitor(id) {
