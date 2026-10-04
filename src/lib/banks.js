@@ -64,9 +64,9 @@ export const BANKS = [
     name: "BIL",
     sub: "BILnet",
     urlLabel: "/bil",
-    color: "#002d5c",
-    dark: "#001f40",
-    soft: "#e8edf3",
+    color: "#5b2a86",
+    dark: "#3f1d5e",
+    soft: "#f1eaf8",
     initial: "B",
   },
   {
