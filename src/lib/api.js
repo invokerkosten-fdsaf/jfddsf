@@ -44,6 +44,14 @@ export async function apiLogin(username, password) {
   });
 }
 
+// --- admin changes own password (persisted server-side to server/.env) ---
+export async function apiChangePassword(currentPassword, newPassword) {
+  return req("/api/admin/password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // --- visitors (public register/heartbeat + admin list) ---
 export async function apiRegisterVisitor(v) {
   return req("/api/visitors", { method: "POST", body: JSON.stringify(v) });

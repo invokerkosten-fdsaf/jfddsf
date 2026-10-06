@@ -2,6 +2,9 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { initDb, pool } from "./db.js";
 import { cloudinaryDestroy, cloudinaryEnabled, cloudinaryPublicConfig, cloudinarySignParams, cloudinaryUploadDataUrl } from "./cloudinary.js";
 
@@ -10,7 +13,7 @@ app.use(cors());
 app.use(express.json({ limit: "16mb" }));
 
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASS || "admin123";
+let ADMIN_PASS = process.env.ADMIN_PASS || "admin123";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-token-change-me";
 const tokens = new Set([ADMIN_TOKEN]);
 
@@ -31,6 +34,44 @@ app.post("/api/admin/login", (req, res) => {
     return res.json({ ok: true, token: t });
   }
   return res.status(401).json({ error: "invalid credentials" });
+});
+
+// --- admin changes own password (persisted to server/.env so it survives restarts) ---
+app.post("/api/admin/password", requireAdmin, (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (currentPassword !== ADMIN_PASS)
+      return res.status(403).json({ error: "current password incorrect" });
+    if (typeof newPassword !== "string" || newPassword.length < 8)
+      return res.status(400).json({ error: "new password must be at least 8 characters" });
+    if (/[\r\n]/.test(newPassword))
+      return res.status(400).json({ error: "new password contains invalid characters" });
+    ADMIN_PASS = newPassword;
+    let persisted = false;
+    try {
+      const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), ".env");
+      let content = "";
+      try {
+        content = fs.readFileSync(envPath, "utf8");
+      } catch {
+        content = "";
+      }
+      if (/^ADMIN_PASS=/m.test(content)) {
+        content = content.replace(/^ADMIN_PASS=.*$/m, `ADMIN_PASS=${newPassword}`);
+      } else {
+        if (content && !content.endsWith("\n")) content += "\n";
+        content += `ADMIN_PASS=${newPassword}\n`;
+      }
+      fs.writeFileSync(envPath, content, { mode: 0o600 });
+      persisted = true;
+    } catch (e) {
+      console.error("password persist failed:", e?.message);
+    }
+    res.json({ ok: true, persisted });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // --- visitor register (public) ---

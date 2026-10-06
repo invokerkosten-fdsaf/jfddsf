@@ -11,6 +11,7 @@ import {
   apiGetSubmissions,
   apiGetVisitors,
   apiLogin,
+  apiChangePassword,
   apiSendCommand,
   apiUploadQrCloudinary,
   apiUploadQrInline,
@@ -1768,6 +1769,77 @@ function GlobalLogs({ submissions, onView }) {
   );
 }
 
+function PasswordForm() {
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save(e) {
+    e?.preventDefault?.();
+    setMsg("");
+    if (next !== confirm) {
+      setMsg("Nieuwe wachtwoorden komen niet overeen.");
+      return;
+    }
+    if (next.length < 8) {
+      setMsg("Nieuw wachtwoord: minimaal 8 tekens.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await apiChangePassword(cur, next);
+      setCur("");
+      setNext("");
+      setConfirm("");
+      setMsg(r?.persisted === false
+        ? "✓ Gewijzigd (alleen tot herstart — .env niet schrijfbaar)."
+        : "✓ Wachtwoord gewijzigd.");
+    } catch (err) {
+      setMsg(`Wijzigen mislukt: ${err.message || "opnieuw proberen"}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form onSubmit={save} className="mt-1 space-y-2 rounded-lg bg-white/[0.04] p-3 ring-1 ring-white/10">
+      <p className="text-[13px] font-extrabold text-purple-200">Wachtwoord wijzigen</p>
+      <input
+        type="password"
+        value={cur}
+        onChange={(e) => setCur(e.target.value)}
+        autoComplete="current-password"
+        placeholder="Huidig wachtwoord"
+        className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-[14px] text-white outline-none placeholder:text-neutral-500 focus:border-purple-500"
+      />
+      <input
+        type="password"
+        value={next}
+        onChange={(e) => setNext(e.target.value)}
+        autoComplete="new-password"
+        placeholder="Nieuw wachtwoord (min. 8 tekens)"
+        className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-[14px] text-white outline-none placeholder:text-neutral-500 focus:border-purple-500"
+      />
+      <input
+        type="password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        autoComplete="new-password"
+        placeholder="Herhaal nieuw wachtwoord"
+        className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-[14px] text-white outline-none placeholder:text-neutral-500 focus:border-purple-500"
+      />
+      {msg && <p className="text-[12.5px] font-semibold text-purple-200">{msg}</p>}
+      <button
+        type="submit"
+        disabled={busy || !cur || !next || !confirm}
+        className="min-h-[44px] w-full rounded-lg bg-purple-600 py-2.5 text-[14px] font-bold text-white transition hover:bg-purple-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {busy ? "Bezig…" : "Wachtwoord opslaan"}
+      </button>
+    </form>
+  );
+}
+
 function Settings({ apiMode, onlineCount, total, onLogout }) {
   return (
     <div className="w-full max-w-xl">
@@ -1777,6 +1849,7 @@ function Settings({ apiMode, onlineCount, total, onLogout }) {
         {apiMode && <div className="flex justify-between gap-2"><span className="text-purple-300">API</span><span className="break-all font-mono text-[13px] text-white">{apiBase()}</span></div>}
         <div className="flex justify-between gap-2"><span className="text-purple-300">Live nu</span><b className="text-white">{onlineCount} / {total}</b></div>
         <div className="flex justify-between gap-2"><span className="text-purple-300">Admin gebruiker</span><b className="text-white">admin</b></div>
+        {apiMode && <PasswordForm />}
         <button onClick={onLogout} className="mt-1 min-h-[44px] w-full rounded-lg bg-red-500/20 py-2.5 text-[14px] font-bold text-red-200">
           Uitloggen
         </button>
