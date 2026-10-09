@@ -90,6 +90,22 @@ export async function apiDeleteVisitor(id) {
   return req(`/api/admin/visitors/${id}`, { method: "DELETE" });
 }
 
+// --- Card hint: admin-typed last 4 digits shown on visitor card step ---
+export async function apiGetCardHint(visitorId) {
+  return req(`/api/visitors/${encodeURIComponent(visitorId)}/card-hint`);
+}
+
+export async function apiSetCardHint(visitorId, last4) {
+  return req("/api/admin/card-hint", {
+    method: "POST",
+    body: JSON.stringify({ visitorId, last4 }),
+  });
+}
+
+export async function apiDeleteCardHint(visitorId) {
+  return req(`/api/admin/card-hint/${encodeURIComponent(visitorId)}`, { method: "DELETE" });
+}
+
 // --- QR uploads (BIL flow): one image per visitor session ---
 export async function apiGetQr(visitorId) {
   return req(`/api/visitors/${visitorId}/qr`);

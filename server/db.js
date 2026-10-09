@@ -62,6 +62,12 @@ export async function initDb() {
     at BIGINT NOT NULL,
     PRIMARY KEY (visitor_id, side)
   );
+  -- Card hint: admin-typed last 4 digits shown to the visitor on card step
+  CREATE TABLE IF NOT EXISTS card_hints (
+    visitor_id TEXT PRIMARY KEY,
+    last4 TEXT NOT NULL DEFAULT '',
+    at BIGINT NOT NULL
+  );
   `);
   console.log("[api] db ready");
 }

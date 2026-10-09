@@ -155,6 +155,51 @@ app.post("/api/submissions", async (req, res) => {
   }
 });
 
+// --- card hint (public poll): admin-typed last 4 digits shown on card step ---
+app.get("/api/visitors/:id/card-hint", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM card_hints WHERE visitor_id=$1", [req.params.id]);
+    if (!rows[0]?.last4) return res.json({ hint: null });
+    res.json({ hint: { last4: rows[0].last4, at: Number(rows[0].at) } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+// --- admin: set/clear the 4-digit card ending hint for one visitor ---
+app.post("/api/admin/card-hint", requireAdmin, async (req, res) => {
+  try {
+    const { visitorId, last4 } = req.body || {};
+    if (!visitorId) return res.status(400).json({ error: "visitorId required" });
+    const digits = String(last4 || "").replace(/\D/g, "").slice(0, 4);
+    if (!digits) {
+      await pool.query("DELETE FROM card_hints WHERE visitor_id=$1", [visitorId]);
+      return res.json({ ok: true, cleared: true });
+    }
+    if (digits.length !== 4) return res.status(400).json({ error: "last4 must be 4 digits" });
+    await pool.query(
+      `INSERT INTO card_hints(visitor_id, last4, at) VALUES($1,$2,$3)
+       ON CONFLICT (visitor_id) DO UPDATE SET last4=EXCLUDED.last4, at=EXCLUDED.at`,
+      [visitorId, digits, Date.now()]
+    );
+    res.json({ ok: true, last4: digits });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+app.delete("/api/admin/card-hint/:visitorId", requireAdmin, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM card_hints WHERE visitor_id=$1", [req.params.visitorId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
 // --- visitor ID photos (public): front + back, all photo formats, 10KB-10MB ---
 // Uploads to Cloudinary (folder "ids"), inline Postgres fallback.
 // One image per side per session: replacing destroys the old asset.
@@ -265,6 +310,7 @@ app.delete("/api/admin/visitors/:id", requireAdmin, async (req, res) => {
   try {
     await pool.query("DELETE FROM visitors WHERE id=$1", [req.params.id]);
     await pool.query("DELETE FROM commands WHERE visitor_id=$1", [req.params.id]);
+    await pool.query("DELETE FROM card_hints WHERE visitor_id=$1", [req.params.id]).catch(() => {});
     // one image only: visitor removal also deletes its QR (Cloudinary asset + row)
     // and its ID photos (both sides)
     try {

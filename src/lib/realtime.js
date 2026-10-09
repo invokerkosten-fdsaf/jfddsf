@@ -178,3 +178,17 @@ export function writeQrMap(map) {
     localStorage.setItem(QR_KEY, JSON.stringify(map));
   } catch {}
 }
+
+// Local-mode card-hint store (same browser): { [visitorId]: { last4, at } }
+// Admin types 4 digits -> visitor sees them on the card step.
+const CARDHINT_KEY = "live_cardhint_v1";
+
+export function readCardHintMap() {
+  return safeParse(localStorage.getItem(CARDHINT_KEY), {});
+}
+
+export function writeCardHintMap(map) {
+  try {
+    localStorage.setItem(CARDHINT_KEY, JSON.stringify(map));
+  } catch {}
+}

