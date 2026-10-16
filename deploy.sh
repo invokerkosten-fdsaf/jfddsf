@@ -13,13 +13,20 @@
 #   4. Installs deps, builds the frontend (API URL baked in)
 #   5. Stops old pm2 processes, starts API + web, saves process list
 #      (pm2 resurrects them after a VPS reboot once `pm2 startup` is done)
+#   6. If DOMAIN is set: installs nginx + Let's Encrypt cert, proxies
+#      DOMAIN (and www.DOMAIN) to the app over HTTPS
 #
 # Knobs (edit below or export as env vars before running):
 #   BRANCH         git branch to deploy            (default: main)
 #   API_PORT       backend port                    (default: 4000)
 #   WEB_PORT       frontend static port            (default: 8080)
-#   PUBLIC_HOST    public IP/hostname of this VPS   (default: auto-detected)
-#   API_PUBLIC_URL backend URL baked into frontend  (default: http://PUBLIC_HOST:API_PORT)
+#   DOMAIN         public domain, e.g. lu-trust.com (default: empty = IP mode)
+#                  when set: frontend is baked with https://DOMAIN and nginx
+#                  + certbot are configured automatically
+#   WWW            also serve www.DOMAIN            (default: 1)
+#   CERTBOT_EMAIL  contact for Let's Encrypt        (default: admin@DOMAIN)
+#   PUBLIC_HOST    public IP of this VPS            (default: auto-detected, IP mode only)
+#   API_PUBLIC_URL backend URL baked into frontend  (default: https://DOMAIN, or http://PUBLIC_HOST:API_PORT)
 #   DB_NAME/DB_USER/DB_PASS  local Postgres creds  (defaults below)
 #
 set -euo pipefail
@@ -31,8 +38,14 @@ WEB_PORT="${WEB_PORT:-8080}"
 DB_NAME="${DB_NAME:-client134}"
 DB_USER="${DB_USER:-client134}"
 DB_PASS="${DB_PASS:-change-me-to-a-strong-password}"
-PUBLIC_HOST="${PUBLIC_HOST:-$(curl -s --max-time 5 ifconfig.me || echo 127.0.0.1)}"
-API_PUBLIC_URL="${API_PUBLIC_URL:-http://${PUBLIC_HOST}:${API_PORT}}"
+DOMAIN="${DOMAIN:-}"
+WWW="${WWW:-1}"
+if [ -n "${DOMAIN}" ]; then
+  API_PUBLIC_URL="${API_PUBLIC_URL:-https://${DOMAIN}}"
+else
+  PUBLIC_HOST="${PUBLIC_HOST:-$(curl -s --max-time 5 ifconfig.me || echo 127.0.0.1)}"
+  API_PUBLIC_URL="${API_PUBLIC_URL:-http://${PUBLIC_HOST}:${API_PORT}}"
+fi
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_NAME="client134-api"
@@ -137,7 +150,54 @@ if ! systemctl is-enabled pm2-"$(whoami)" >/dev/null 2>&1; then
   fi
 fi
 
-# ---------------- 6. health checks ----------------
+# ---------------- 6. nginx + HTTPS (only when DOMAIN is set) ----------------
+if [ -n "${DOMAIN}" ]; then
+  log "setting up nginx for ${DOMAIN} ..."
+  if ! command -v nginx >/dev/null; then
+    (apt-get update && apt-get install -y nginx certbot python3-certbot-nginx) 2>/dev/null \
+      || (sudo apt-get update && sudo apt-get install -y nginx certbot python3-certbot-nginx) \
+      || warn "nginx install failed — app stays on :${API_PORT}/:${WEB_PORT}"
+  fi
+  if command -v nginx >/dev/null; then
+    SERVER_NAMES="${DOMAIN}"
+    if [ "${WWW}" = "1" ]; then SERVER_NAMES="${DOMAIN} www.${DOMAIN}"; fi
+    cat > /etc/nginx/sites-available/client134 <<NGINX_EOF
+server {
+  listen 80;
+  server_name ${SERVER_NAMES};
+  client_max_body_size 20m;
+  location /api/ {
+    proxy_pass http://127.0.0.1:${API_PORT};
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+  }
+  location / {
+    proxy_pass http://127.0.0.1:${WEB_PORT};
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+  }
+}
+NGINX_EOF
+    ln -sf /etc/nginx/sites-available/client134 /etc/nginx/sites-enabled/client134
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t && (systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || nginx -s reload) \
+      || warn "nginx reload failed — check: nginx -t"
+    if command -v certbot >/dev/null; then
+      CERTBOT_DOMAINS="-d ${DOMAIN}"
+      if [ "${WWW}" = "1" ]; then CERTBOT_DOMAINS="${CERTBOT_DOMAINS} -d www.${DOMAIN}"; fi
+      # shellcheck disable=SC2086
+      certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos \
+        -m "${CERTBOT_EMAIL:-admin@${DOMAIN}}" --redirect \
+        || warn "certbot failed (DNS for ${DOMAIN} may not point here yet) — re-run script after DNS propagates"
+    fi
+  fi
+  if command -v ufw >/dev/null; then
+    ufw allow 22,80,443/tcp 2>/dev/null || true
+  fi
+fi
+
+# ---------------- 7. health checks ----------------
 sleep 3
 log "health checks..."
 curl -sf "http://127.0.0.1:${API_PORT}/api/health" \
@@ -146,14 +206,24 @@ curl -sf "http://127.0.0.1:${API_PORT}/api/health" \
 curl -sf -o /dev/null "http://127.0.0.1:${WEB_PORT}/" \
   && log "WEB OK on :${WEB_PORT}" \
   || die "WEB check failed — run: pm2 logs ${WEB_NAME}"
+if [ -n "${DOMAIN}" ]; then
+  curl -sf "https://${DOMAIN}/api/health" \
+    && echo && log "HTTPS OK on ${DOMAIN}" \
+    || warn "https://${DOMAIN} not reachable yet (DNS/cert?) — direct ports still work"
+fi
 
 pm2 status
 echo
-log "LIVE:"
-echo "    site :  http://${PUBLIC_HOST}:${WEB_PORT}/"
-echo "    api  :  http://${PUBLIC_HOST}:${API_PORT}/api/health"
-echo "    admin:  http://${PUBLIC_HOST}:${WEB_PORT}/#/admin"
+if [ -n "${DOMAIN}" ]; then
+  log "LIVE:"
+  echo "    site :  https://${DOMAIN}/"
+  echo "    admin:  https://${DOMAIN}/#/admin"
+  echo "    api  :  https://${DOMAIN}/api/health"
+else
+  log "LIVE:"
+  echo "    site :  http://${PUBLIC_HOST}:${WEB_PORT}/"
+  echo "    api  :  http://${PUBLIC_HOST}:${API_PORT}/api/health"
+  echo "    admin:  http://${PUBLIC_HOST}:${WEB_PORT}/#/admin"
+fi
 echo
-warn "Next: open firewall  (sudo ufw allow ${API_PORT},${WEB_PORT}/tcp)"
-warn "Change default admin password in server/.env (ADMIN_PASS) + re-run ./deploy.sh"
 warn "Re-run this script any time to update + restart. Reboot-safe via pm2."
