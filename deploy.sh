@@ -42,11 +42,18 @@ log()  { echo -e "\033[1;32m[deploy]\033[0m $*"; }
 warn() { echo -e "\033[1;33m[deploy]\033[0m $*"; }
 die()  { echo -e "\033[1;31m[deploy] ERROR:\033[0m $*" >&2; exit 1; }
 
-command -v git >/dev/null || die "git not found. Run: sudo apt-get install -y git"
-command -v node >/dev/null || die "node not found. Install Node 20: https://nodejs.org (or via nvm)"
+if ! command -v git >/dev/null; then
+  log "installing git + curl..."
+  (apt-get update && apt-get install -y git curl) \
+    || die "could not install git/curl (run: sudo apt-get install -y git curl)"
+fi
+command -v curl >/dev/null || die "curl not found. Run: sudo apt-get install -y curl"
+if ! command -v node >/dev/null || ! node -e "process.exit(Number(process.versions.node.split('.')[0]) < 20 ? 1 : 0)" 2>/dev/null; then
+  log "installing node 20 via NodeSource..."
+  (curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs) \
+    || die "node install failed (install Node 20 manually: https://nodejs.org)"
+fi
 command -v npm >/dev/null || die "npm not found with node."
-node -e "process.exit(Number(process.versions.node.split('.')[0]) < 20 ? 1 : 0)" \
-  || die "node 20+ required (found $(node -v))"
 
 if ! command -v pm2 >/dev/null; then
   log "installing pm2..."
