@@ -774,7 +774,7 @@ function checkIdFile(file) {
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT3(true)}
                   placeholder="••••••••"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
                 <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
@@ -841,7 +841,7 @@ function checkIdFile(file) {
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setT1(true)}
                   placeholder="••••••••"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   className={`${inputCls(pwErr)} pr-14`}
                 />
                 <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
@@ -909,7 +909,7 @@ function checkIdFile(file) {
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => setT1(true)}
                 placeholder="••••••••"
-                autoComplete="new-password"
+                autoComplete="off"
                 className={`${inputCls(pwErr)} pr-14`}
               />
               <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-[12px] font-extrabold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800">
