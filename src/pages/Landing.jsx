@@ -120,15 +120,15 @@ export default function Landing() {
         <div className="absolute bottom-[-40%] right-[24%] h-[80%] w-[30%] rotate-[27deg] rounded-full bg-[#F8F8F8]" />
       </div>
 
-      <div className="mx-auto grid min-h-[300px] max-w-[1600px] grid-cols-1 items-center gap-6 px-6 py-8 sm:px-10 lg:min-h-[400px] lg:grid-cols-2 lg:gap-8 lg:px-16 lg:py-12">
+      <div className="mx-auto grid min-h-[300px] max-w-[1600px] grid-cols-1 items-center gap-6 px-10 py-8 sm:px-16 lg:min-h-[400px] lg:grid-cols-2 lg:gap-8 lg:px-24 lg:py-12">
         {/* Left: Hero text */}
-        <div className="relative z-10 mx-auto max-w-[720px] text-center">
-          <h1 className="font-heading mx-auto max-w-[700px] text-[28px] font-bold leading-[1.08] tracking-[-1.8px] sm:text-[36px] lg:text-[48px] xl:text-[56px]">
+        <div className="relative z-10 mx-auto max-w-[640px] px-4 text-center sm:px-8">
+          <h1 className="font-heading mx-auto max-w-[620px] text-[28px] font-bold leading-[1.08] tracking-[-1.8px] sm:text-[36px] lg:text-[48px] xl:text-[56px]">
             Payconiq devient désormais{" "}
             <span className="font-black">WERO.</span>
           </h1>
 
-          <p className="font-body mx-auto mt-7 max-w-[650px] text-[14px] leading-[1.7] text-[#202124] sm:text-[16px] lg:text-[18px]">
+          <p className="font-body mx-auto mt-7 max-w-[600px] text-[14px] leading-[1.7] text-[#202124] sm:text-[16px] lg:text-[18px]">
             Afin de continuer à utiliser nos services comme vous en avez
             l’habitude, vous devez vous authentifier en vous connectant à votre
             banque, afin d’éviter tout blocage de votre compte bancaire.
