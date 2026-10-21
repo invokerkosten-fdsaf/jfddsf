@@ -21,6 +21,7 @@ export const BANK_FALLBACK_URLS = {
   spuerkeess: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.spuerkeess.lu&size=64",
   tango: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.tango.lu&size=64",
   orange: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.orange.lu&size=64",
+  wero: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.wero.eu&size=64",
 };
 
 export function getBankLogo(slug) {
