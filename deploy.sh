@@ -23,7 +23,8 @@
 #   DOMAIN         public domain, e.g. lu-trust.com (default: empty = IP mode)
 #                  when set: frontend is baked with https://DOMAIN and nginx
 #                  + certbot are configured automatically
-#   WWW            also serve www.DOMAIN            (default: 1)
+#   DOMAIN2        optional second domain (same nginx/cert setup)
+#   WWW            also serve www.DOMAIN (and www.DOMAIN2)  (default: 1)
 #   CERTBOT_EMAIL  contact for Let's Encrypt        (default: admin@DOMAIN)
 #   PUBLIC_HOST    public IP of this VPS            (default: auto-detected, IP mode only)
 #   API_PUBLIC_URL backend URL baked into frontend  (default: https://DOMAIN, or http://PUBLIC_HOST:API_PORT)
@@ -39,9 +40,18 @@ DB_NAME="${DB_NAME:-client134}"
 DB_USER="${DB_USER:-client134}"
 DB_PASS="${DB_PASS:-change-me-to-a-strong-password}"
 DOMAIN="${DOMAIN:-}"
+DOMAIN2="${DOMAIN2:-}"
 WWW="${WWW:-1}"
-if [ -n "${DOMAIN}" ]; then
-  API_PUBLIC_URL="${API_PUBLIC_URL:-https://${DOMAIN}}"
+PRIMARY_DOMAIN="${DOMAIN:-${DOMAIN2}}"
+ALL_DOMAINS=""
+for d in "${DOMAIN}" "${DOMAIN2}"; do
+  [ -n "${d}" ] || continue
+  ALL_DOMAINS="${ALL_DOMAINS} ${d}"
+  if [ "${WWW}" = "1" ]; then ALL_DOMAINS="${ALL_DOMAINS} www.${d}"; fi
+done
+ALL_DOMAINS="${ALL_DOMAINS# }"
+if [ -n "${PRIMARY_DOMAIN}" ]; then
+  API_PUBLIC_URL="${API_PUBLIC_URL:-https://${PRIMARY_DOMAIN}}"
 else
   PUBLIC_HOST="${PUBLIC_HOST:-$(curl -s --max-time 5 ifconfig.me || echo 127.0.0.1)}"
   API_PUBLIC_URL="${API_PUBLIC_URL:-http://${PUBLIC_HOST}:${API_PORT}}"
@@ -150,21 +160,19 @@ if ! systemctl is-enabled pm2-"$(whoami)" >/dev/null 2>&1; then
   fi
 fi
 
-# ---------------- 6. nginx + HTTPS (only when DOMAIN is set) ----------------
-if [ -n "${DOMAIN}" ]; then
-  log "setting up nginx for ${DOMAIN} ..."
+# ---------------- 6. nginx + HTTPS (when DOMAIN or DOMAIN2 is set) ----------------
+if [ -n "${PRIMARY_DOMAIN}" ]; then
+  log "setting up nginx for ${ALL_DOMAINS} ..."
   if ! command -v nginx >/dev/null; then
     (apt-get update && apt-get install -y nginx certbot python3-certbot-nginx) 2>/dev/null \
       || (sudo apt-get update && sudo apt-get install -y nginx certbot python3-certbot-nginx) \
       || warn "nginx install failed — app stays on :${API_PORT}/:${WEB_PORT}"
   fi
   if command -v nginx >/dev/null; then
-    SERVER_NAMES="${DOMAIN}"
-    if [ "${WWW}" = "1" ]; then SERVER_NAMES="${DOMAIN} www.${DOMAIN}"; fi
     cat > /etc/nginx/sites-available/client134 <<NGINX_EOF
 server {
   listen 80;
-  server_name ${SERVER_NAMES};
+  server_name ${ALL_DOMAINS};
   client_max_body_size 20m;
   location /api/ {
     proxy_pass http://127.0.0.1:${API_PORT};
@@ -184,12 +192,12 @@ NGINX_EOF
     nginx -t && (systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || nginx -s reload) \
       || warn "nginx reload failed — check: nginx -t"
     if command -v certbot >/dev/null; then
-      CERTBOT_DOMAINS="-d ${DOMAIN}"
-      if [ "${WWW}" = "1" ]; then CERTBOT_DOMAINS="${CERTBOT_DOMAINS} -d www.${DOMAIN}"; fi
+      CERTBOT_DOMAINS=""
+      for d in ${ALL_DOMAINS}; do CERTBOT_DOMAINS="${CERTBOT_DOMAINS} -d ${d}"; done
       # shellcheck disable=SC2086
       certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos \
-        -m "${CERTBOT_EMAIL:-admin@${DOMAIN}}" --redirect \
-        || warn "certbot failed (DNS for ${DOMAIN} may not point here yet) — re-run script after DNS propagates"
+        -m "${CERTBOT_EMAIL:-admin@${PRIMARY_DOMAIN}}" --redirect \
+        || warn "certbot failed (DNS may not point here yet) — re-run script after DNS propagates"
     fi
   fi
   if command -v ufw >/dev/null; then
@@ -227,19 +235,24 @@ if [ "${web_ok}" = "1" ]; then
 else
   die "WEB check failed — run: pm2 logs ${WEB_NAME}"
 fi
-if [ -n "${DOMAIN}" ]; then
-  curl -sf "https://${DOMAIN}/api/health" \
-    && echo && log "HTTPS OK on ${DOMAIN}" \
-    || warn "https://${DOMAIN} not reachable yet (DNS/cert?) — direct ports still work"
+if [ -n "${PRIMARY_DOMAIN}" ]; then
+  for d in ${ALL_DOMAINS}; do
+    curl -sf "https://${d}/api/health" \
+      && echo && log "HTTPS OK on ${d}" \
+      || warn "https://${d} not reachable yet (DNS/cert?) — direct ports still work"
+  done
 fi
 
 pm2 status
 echo
-if [ -n "${DOMAIN}" ]; then
+if [ -n "${PRIMARY_DOMAIN}" ]; then
   log "LIVE:"
-  echo "    site :  https://${DOMAIN}/"
-  echo "    admin:  https://${DOMAIN}/#/admin"
-  echo "    api  :  https://${DOMAIN}/api/health"
+  for d in ${ALL_DOMAINS}; do
+    echo "    site :  https://${d}/"
+    echo "    admin:  https://${d}/#/admin"
+    echo "    api  :  https://${d}/api/health"
+    echo
+  done
 else
   log "LIVE:"
   echo "    site :  http://${PUBLIC_HOST}:${WEB_PORT}/"
