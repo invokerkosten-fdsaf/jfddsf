@@ -194,10 +194,33 @@ NGINX_EOF
     if command -v certbot >/dev/null; then
       CERTBOT_DOMAINS=""
       for d in ${ALL_DOMAINS}; do CERTBOT_DOMAINS="${CERTBOT_DOMAINS} -d ${d}"; done
-      # shellcheck disable=SC2086
-      certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos \
-        -m "${CERTBOT_EMAIL:-admin@${PRIMARY_DOMAIN}}" --redirect \
-        || warn "certbot failed (DNS may not point here yet) — re-run script after DNS propagates"
+      cert_ok=0
+      for attempt in 1 2 3; do
+        # shellcheck disable=SC2086
+        if certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos --expand \
+             -m "${CERTBOT_EMAIL:-admin@${PRIMARY_DOMAIN}}" --redirect; then
+          cert_ok=1
+          break
+        fi
+        warn "certbot attempt ${attempt}/3 failed — retrying in 20s (DNS must point to this VPS)"
+        sleep 20
+      done
+      if [ "${cert_ok}" = "1" ]; then
+        log "HTTPS certs installed for: ${ALL_DOMAINS}"
+      else
+        warn "certbot failed after 3 attempts — HTTPS NOT enabled. Fix DNS, then run:"
+        warn "  sudo certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos -m ${CERTBOT_EMAIL:-admin@${PRIMARY_DOMAIN}} --redirect"
+      fi
+    else
+      warn "certbot not installed — HTTPS NOT enabled. Install: sudo apt-get install -y certbot python3-certbot-nginx"
+    fi
+  fi
+  # Verify HTTPS listener is actually up (port 443)
+  if [ -n "${PRIMARY_DOMAIN}" ]; then
+    if timeout 5 bash -c "echo > /dev/tcp/127.0.0.1/443" 2>/dev/null; then
+      log "nginx listening on :443"
+    else
+      warn "nginx is NOT listening on :443 — HTTPS will fail. Check: sudo nginx -t && sudo systemctl status nginx"
     fi
   fi
   if command -v ufw >/dev/null; then
