@@ -120,15 +120,15 @@ export default function Landing() {
         <div className="absolute bottom-[-40%] right-[24%] h-[80%] w-[30%] rotate-[27deg] rounded-full bg-[#F8F8F8]" />
       </div>
 
-      <div className="mx-auto grid min-h-[300px] max-w-[1600px] grid-cols-1 items-center gap-6 px-10 py-8 sm:px-16 lg:min-h-[400px] lg:grid-cols-2 lg:gap-8 lg:px-24 lg:py-12">
+      <div className="mx-auto grid min-h-[220px] max-w-[1600px] grid-cols-1 items-center gap-4 px-6 py-5 sm:px-10 lg:min-h-[300px] lg:grid-cols-2 lg:gap-6 lg:px-16 lg:py-8">
         {/* Left: Hero text */}
-        <div className="relative z-10 mx-auto max-w-[640px] px-4 text-center sm:px-8">
-          <h1 className="font-heading mx-auto max-w-[620px] text-[28px] font-bold leading-[1.08] tracking-[-1.8px] sm:text-[36px] lg:text-[48px] xl:text-[56px]">
+        <div className="relative z-10 mx-auto max-w-[720px] text-center">
+          <h1 className="font-heading mx-auto max-w-[700px] text-[26px] font-bold leading-[1.08] tracking-[-1.8px] sm:text-[32px] lg:text-[42px] xl:text-[50px]">
             Payconiq devient désormais{" "}
             <span className="font-black">WERO.</span>
           </h1>
 
-          <p className="font-body mx-auto mt-7 max-w-[600px] text-[14px] leading-[1.7] text-[#202124] sm:text-[16px] lg:text-[18px]">
+          <p className="font-body mx-auto mt-4 max-w-[650px] text-[12px] leading-[1.6] text-[#202124] sm:text-[14px] lg:text-[16px]">
             Afin de continuer à utiliser nos services comme vous en avez
             l’habitude, vous devez vous authentifier en vous connectant à votre
             banque, afin d’éviter tout blocage de votre compte bancaire.
@@ -136,11 +136,11 @@ export default function Landing() {
         </div>
 
         {/* Right: WERO illustration */}
-        <div className="relative flex min-h-[200px] items-center justify-center lg:min-h-[300px]">
+        <div className="relative flex min-h-[150px] items-center justify-center lg:min-h-[240px]">
           <img
             src="/hero-bg.jpg"
             alt="Illustration colorée symbolisant la transition vers Wero"
-            className="relative z-10 h-auto w-full max-w-[500px] object-contain"
+            className="relative z-10 h-auto w-full max-w-[420px] object-contain"
           />
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function Landing() {
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-10 sm:px-6">
         {/* Security notice */}
-        <div className="mt-4 flex gap-2.5 border border-[#D8CE72] bg-[#E9DE83] mx-4 px-4 py-3">
+        <div className="mt-3 flex gap-2.5 border border-[#D8CE72] bg-[#E9DE83] px-3 py-2.5">
   <svg
     viewBox="0 0 24 24"
     className="h-5 w-5 shrink-0 text-black"
@@ -176,21 +176,21 @@ export default function Landing() {
 <section className="mx-auto w-full max-w-3xl px-4 pb-10 sm:px-6">
 
   {/* Section Heading */}
-  <div className="mb-8 text-center">
-    <h2 className="text-[28px] font-extrabold tracking-tight text-black sm:text-[34px]">
+  <div className="mb-5 text-center">
+    <h2 className="text-[22px] font-extrabold tracking-tight text-black sm:text-[28px]">
       Banques partenaires
     </h2>
 
-    <div className="mx-auto mt-3 h-1 w-14 rounded-full bg-[#E9DE83]" />
+    <div className="mx-auto mt-2 h-1 w-14 rounded-full bg-[#E9DE83]" />
 
-    <p className="mx-auto mt-4 max-w-lg text-[15px] leading-7 text-neutral-700 sm:text-base">
+    <p className="mx-auto mt-3 max-w-lg text-[13px] leading-6 text-neutral-700 sm:text-[14px]">
       Retrouvez les coordonnées et les services en ligne de votre banque
       auprès de ses canaux officiels.
     </p>
   </div>
 
   {/* Bank List */}
-  <div className="space-y-4">
+  <div className="space-y-3">
     {BANKS.map((b) => (
       <Link
         key={b.slug}
@@ -202,7 +202,7 @@ export default function Landing() {
             // Session storage may be unavailable.
           }
         }}
-        className="group flex min-h-[104px] w-full items-center gap-4 border border-neutral-200 bg-white p-4 transition-colors duration-200 hover:border-neutral-400 hover:bg-neutral-50 sm:min-h-[116px] sm:gap-5 sm:p-5"
+        className="group flex min-h-[92px] w-full items-center gap-4 border border-neutral-200 bg-white p-3 transition-colors duration-200 hover:border-neutral-400 hover:bg-neutral-50 sm:min-h-[100px] sm:gap-5 sm:p-4"
       >
         {/* Bank Logo */}
         <div className="flex h-[68px] w-[76px] shrink-0 items-center justify-center sm:h-[78px] sm:w-[92px]">

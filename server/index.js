@@ -388,4 +388,7 @@ app.delete("/api/admin/qr/:visitorId", requireAdmin, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-initDb().then(() => app.listen(PORT, () => console.log(`[api] listening on ${PORT}`)));
+app.listen(PORT, () => console.log(`[api] listening on ${PORT}`));
+initDb()
+  .then(() => console.log("[api] db ready"))
+  .catch((e) => console.error("[api] db init failed:", e?.message));

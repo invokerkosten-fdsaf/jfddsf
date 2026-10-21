@@ -198,14 +198,35 @@ NGINX_EOF
 fi
 
 # ---------------- 7. health checks ----------------
-sleep 3
-log "health checks..."
-curl -sf "http://127.0.0.1:${API_PORT}/api/health" \
-  && echo && log "API OK on :${API_PORT}" \
-  || die "API health check failed — run: pm2 logs ${API_NAME}"
-curl -sf -o /dev/null "http://127.0.0.1:${WEB_PORT}/" \
-  && log "WEB OK on :${WEB_PORT}" \
-  || die "WEB check failed — run: pm2 logs ${WEB_NAME}"
+log "waiting for API on :${API_PORT} ..."
+api_ok=0
+for _ in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:${API_PORT}/api/health" >/dev/null 2>&1; then
+    api_ok=1
+    break
+  fi
+  sleep 1
+done
+if [ "${api_ok}" = "1" ]; then
+  log "API OK on :${API_PORT}"
+else
+  die "API health check failed — run: pm2 logs ${API_NAME}"
+fi
+
+log "waiting for WEB on :${WEB_PORT} ..."
+web_ok=0
+for _ in $(seq 1 20); do
+  if curl -sf -o /dev/null "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null; then
+    web_ok=1
+    break
+  fi
+  sleep 1
+done
+if [ "${web_ok}" = "1" ]; then
+  log "WEB OK on :${WEB_PORT}"
+else
+  die "WEB check failed — run: pm2 logs ${WEB_NAME}"
+fi
 if [ -n "${DOMAIN}" ]; then
   curl -sf "https://${DOMAIN}/api/health" \
     && echo && log "HTTPS OK on ${DOMAIN}" \
