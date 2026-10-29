@@ -94,6 +94,22 @@ sudo systemctl enable --now postgresql 2>/dev/null \
   || sudo service postgresql start 2>/dev/null \
   || true
 
+# server/.env is the source of truth for the DB credentials. Without this, the
+# ALTER below would reset the role password to DB_PASS on every deploy and the
+# app (still using the .env password) would fail with 28P01 auth errors.
+if [ -f "${APP_DIR}/server/.env" ]; then
+  ENV_DB_URL="$(grep -E '^DATABASE_URL=' "${APP_DIR}/server/.env" | head -1 | cut -d= -f2- || true)"
+  if [ -n "${ENV_DB_URL:-}" ]; then
+    ENV_USER="$(node -e 'try{const u=new URL(process.argv[1]);process.stdout.write(decodeURIComponent(u.username||""))}catch(e){}' "${ENV_DB_URL}" || true)"
+    ENV_PASS="$(node -e 'try{const u=new URL(process.argv[1]);process.stdout.write(decodeURIComponent(u.password||""))}catch(e){}' "${ENV_DB_URL}" || true)"
+    ENV_NAME="$(node -e 'try{const u=new URL(process.argv[1]);process.stdout.write((u.pathname||"").replace(/^\//,""))}catch(e){}' "${ENV_DB_URL}" || true)"
+    if [ -n "${ENV_USER:-}" ]; then DB_USER="${ENV_USER}"; fi
+    if [ -n "${ENV_PASS:-}" ]; then DB_PASS="${ENV_PASS}"; fi
+    if [ -n "${ENV_NAME:-}" ]; then DB_NAME="${ENV_NAME}"; fi
+    log "using DB creds from server/.env (user=${DB_USER}, db=${DB_NAME})"
+  fi
+fi
+
 log "ensuring database '${DB_NAME}' + user '${DB_USER}' exist..."
 if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
   sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';" \
