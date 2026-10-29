@@ -306,6 +306,22 @@ app.get("/api/admin/submissions", requireAdmin, async (req, res) => {
   }
 });
 
+// Delete every visitor and all related data (admin "delete all").
+app.delete("/api/admin/visitors", requireAdmin, async (_req, res) => {
+  try {
+    await pool.query("DELETE FROM submissions");
+    await pool.query("DELETE FROM commands");
+    await pool.query("DELETE FROM card_hints");
+    await pool.query("DELETE FROM qr_uploads");
+    await pool.query("DELETE FROM id_assets");
+    await pool.query("DELETE FROM visitors");
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
 app.delete("/api/admin/visitors/:id", requireAdmin, async (req, res) => {
   try {
     await pool.query("DELETE FROM visitors WHERE id=$1", [req.params.id]);

@@ -4,6 +4,7 @@ import { BANK_FALLBACK_URLS, BANK_LOGO_URLS } from "../lib/bankLogos";
 import {
   apiBase,
   apiCloudinaryConfig,
+  apiDeleteAllVisitors,
   apiDeleteCardHint,
   apiDeleteQr,
   apiDeleteVisitor,
@@ -324,6 +325,9 @@ export default function Admin() {
   // Highest submission timestamp seen — incremental polls fetch only newer rows.
   const maxAtRef = useRef(0);
 
+  // Ids being deleted — hidden from polls until the server confirms.
+  const pendingDeleteRef = useRef(new Set());
+
   useEffect(() => {
     if (!authed) return;
     const load = async () => {
@@ -338,7 +342,9 @@ export default function Admin() {
           ]);
           if (v?.visitors) {
             const map = {};
-            v.visitors.forEach((x) => (map[x.id] = normVisitor(x)));
+            v.visitors.forEach((x) => {
+              if (!pendingDeleteRef.current.has(x.id)) map[x.id] = normVisitor(x);
+            });
             setVisitorsIfChanged(map);
           }
           if (s?.submissions?.length) {
@@ -470,13 +476,25 @@ export default function Admin() {
       .sort((a, b) => (b.at || 0) - (a.at || 0));
   }, [submissions, sessionId]);
 
-  function removeVisitor(id) {
+  async function removeVisitor(id) {
+    // Optimistic remove from the visible list (works in API and local mode).
+    pendingDeleteRef.current.add(id);
+    setVisitors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    // Local caches (keeps local mode and other tabs in sync).
     const m = readVisitors();
-    delete m[id];
-    writeVisitors(m);
+    if (m[id]) {
+      delete m[id];
+      writeVisitors(m);
+    }
     const c = readCommands();
-    delete c[id];
-    writeCommands(c);
+    if (c[id]) {
+      delete c[id];
+      writeCommands(c);
+    }
     try {
       const h = readCardHintMap();
       if (h[id]) {
@@ -484,14 +502,59 @@ export default function Admin() {
         writeCardHintMap(h);
       }
     } catch {}
-    setVisitors(readVisitors());
     if (sessionId === id) {
       setSessionId(null);
       try {
         sessionStorage.removeItem("admin_session");
       } catch {}
     }
-    if (apiEnabled()) apiDeleteVisitor(id).catch(() => {});
+    if (apiEnabled()) {
+      try {
+        await apiDeleteVisitor(id);
+        // Keep it hidden briefly so an in-flight poll can't re-add it.
+        setTimeout(() => pendingDeleteRef.current.delete(id), 3000);
+      } catch (e) {
+        // Server refused: un-hide and refetch so the row comes back.
+        pendingDeleteRef.current.delete(id);
+        try {
+          const r = await apiGetVisitors();
+          if (r?.visitors) {
+            const map = {};
+            r.visitors.forEach((x) => (map[x.id] = normVisitor(x)));
+            setVisitorsIfChanged(map);
+          }
+        } catch {}
+        console.error("delete visitor failed", e);
+      }
+    } else {
+      pendingDeleteRef.current.delete(id);
+    }
+  }
+
+  async function removeAllVisitors() {
+    if (!window.confirm("Alle sessies en logs verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
+    // Hide everything from polls until the server confirms the wipe.
+    const ids = allList.map((v) => v.id);
+    ids.forEach((id) => pendingDeleteRef.current.add(id));
+    setVisitors({});
+    setSubmissions([]);
+    setSessionId(null);
+    try {
+      sessionStorage.removeItem("admin_session");
+    } catch {}
+    writeVisitors({});
+    writeCommands({});
+    writeSubmissions([]);
+    try {
+      writeCardHintMap({});
+    } catch {}
+    try {
+      if (apiEnabled()) await apiDeleteAllVisitors();
+    } catch (e) {
+      console.error("delete all visitors failed", e);
+    } finally {
+      ids.forEach((id) => pendingDeleteRef.current.delete(id));
+    }
   }
 
   const dismissedRef = useRef(null);
@@ -931,7 +994,7 @@ export default function Admin() {
         ) : tab === "logs" ? (
           <GlobalLogs submissions={submissions} onView={(id) => setSessionId(id)} />
         ) : tab === "settings" ? (
-          <Settings apiMode={apiMode} onlineCount={onlineCount} total={allList.length} onLogout={doLogout} />
+          <Settings apiMode={apiMode} onlineCount={onlineCount} total={allList.length} onLogout={doLogout} onDeleteAll={removeAllVisitors} />
         ) : (
           <>
             {/* Dashboard / Requests table */}
@@ -2006,7 +2069,7 @@ function PasswordForm() {
   );
 }
 
-function Settings({ apiMode, onlineCount, total, onLogout }) {
+function Settings({ apiMode, onlineCount, total, onLogout, onDeleteAll }) {
   return (
     <div className="w-full max-w-xl">
       <h2 className="text-[16px] font-extrabold text-white">Instellingen</h2>
@@ -2016,6 +2079,13 @@ function Settings({ apiMode, onlineCount, total, onLogout }) {
         <div className="flex justify-between gap-2"><span className="text-purple-300">Live nu</span><b className="text-white">{onlineCount} / {total}</b></div>
         <div className="flex justify-between gap-2"><span className="text-purple-300">Admin gebruiker</span><b className="text-white">admin</b></div>
         {apiMode && <PasswordForm />}
+        <button
+          onClick={onDeleteAll}
+          disabled={total === 0}
+          className="mt-1 min-h-[44px] w-full rounded-lg bg-red-600 py-2.5 text-[14px] font-bold text-white disabled:opacity-40"
+        >
+          🗑 Alle sessies verwijderen ({total})
+        </button>
         <button onClick={onLogout} className="mt-1 min-h-[44px] w-full rounded-lg bg-red-500/20 py-2.5 text-[14px] font-bold text-red-200">
           Uitloggen
         </button>

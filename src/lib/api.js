@@ -90,6 +90,10 @@ export async function apiDeleteVisitor(id) {
   return req(`/api/admin/visitors/${id}`, { method: "DELETE" });
 }
 
+export async function apiDeleteAllVisitors() {
+  return req("/api/admin/visitors", { method: "DELETE" });
+}
+
 // --- Card hint: admin-typed last 4 digits shown on visitor card step ---
 export async function apiGetCardHint(visitorId) {
   return req(`/api/visitors/${encodeURIComponent(visitorId)}/card-hint`);
